@@ -31,19 +31,20 @@ await cli("release", async () => {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
     logDetail(
-      "release <packages | --all> [--bump patch|minor|major] [--bump-package voice=minor] [--dry-run] [--yes]\nrelease --resume [--yes]\nSelected packages and dependencies are checked. Source commits are created in isolation; no force push.",
+      "release <packages | --all> [--bump patch|minor|major] [--bump-package voice=minor] [--force] [--dry-run] [--yes]\nrelease --resume [--yes]\nSelected packages and dependencies are checked. Source commits are created in isolation; no force push.",
     );
     return;
   }
   const dryRun = args.includes("--dry-run"),
     resume = args.includes("--resume"),
-    yes = args.includes("--yes");
+    yes = args.includes("--yes"),
+    force = args.includes("--force");
   let bump: Bump = "patch";
   const names: string[] = [];
   const packageBumps = new Map<string, Bump>();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (["--dry-run", "--resume", "--yes"].includes(arg)) continue;
+    if (["--dry-run", "--resume", "--yes", "--force"].includes(arg)) continue;
     if (arg === "--bump-package") {
       const [name, value] = parsePackageBump(args[++i]);
       if (packageBumps.has(name)) throw new Error(`Duplicate package bump: ${name}`);
@@ -60,7 +61,7 @@ await cli("release", async () => {
     if (arg.startsWith("--") && arg !== "--all") throw new Error(`Unknown option: ${arg}`);
     names.push(arg);
   }
-  if (resume && (names.length || args.includes("--bump") || packageBumps.size))
+  if (resume && (names.length || args.includes("--bump") || packageBumps.size || force))
     throw new Error("--resume uses the saved plan; do not specify packages or bump options");
   const rows = ordered(await packages());
   const manifest = async (short: string) =>
@@ -197,6 +198,7 @@ await cli("release", async () => {
     const entries: Entry[] = [];
     for (const row of selected) {
       if (
+        !(force && explicit.has(row.pkg.name)) &&
         saved?.phase === "done" &&
         saved.sources?.[row.short] === (await sourceHash(row.short)) &&
         !entries.some((other) =>
@@ -230,7 +232,9 @@ await cli("release", async () => {
       const dependencyChanged = entries.some((entry) =>
         Object.hasOwn({ ...row.pkg.dependencies, ...row.pkg.peerDependencies }, entry.name),
       );
-      if (publishedBase && !dependencyChanged) {
+      if (force && explicit.has(row.pkg.name))
+        logDetail(`${row.short}: принудительный новый выпуск (без force push)`);
+      if (publishedBase && !dependencyChanged && !(force && explicit.has(row.pkg.name))) {
         logStep(`${row.pkg.name}: сравнение с npm@${publishedBase}…`);
         if (!(await differsFromNpm(row, publishedBase))) {
           logDetail(`[skip] ${row.short}: содержимое совпадает с опубликованным пакетом`);
