@@ -60,7 +60,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "dev": "tsx src/index.ts",
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "node ../../scripts/build-package.ts",
     "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
   },
   "devDependencies": {

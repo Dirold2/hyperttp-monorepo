@@ -1,4 +1,10 @@
-import type { ServerRequestContext, TransportServer } from "@hyperttp/types";
+import type {
+  InferProtocolServerRequest,
+  InferProtocolServerResponse,
+  ServerRequestContext,
+  TransportRequest,
+  TransportServer,
+} from "@hyperttp/types";
 import type { HyperCore } from "@hyperttp/core";
 import type { HttpMethod, RestServerInput, RestServerResponse } from "@hyperttp/core/rest";
 
@@ -34,6 +40,23 @@ export interface ServerOptions<Services = Record<never, never>> {
   services?: Services;
 }
 
+export interface WebRtcRouteContext<Services> {
+  readonly request: InferProtocolServerRequest<"webrtc">;
+  readonly services: Services;
+  readonly context: ServerRequestContext;
+}
+
+export interface WebRtcSignalOptions<Services> {
+  /** Runs before peer/session creation; body is not read yet. */
+  readonly authorize?: (context: {
+    readonly request: TransportRequest;
+    readonly services: Services;
+  }) => boolean | Promise<boolean>;
+  readonly handler: (
+    context: WebRtcRouteContext<Services>,
+  ) => InferProtocolServerResponse<"webrtc"> | Promise<InferProtocolServerResponse<"webrtc">>;
+}
+
 type Segment = { literal: string } | { param: string };
 type Route<Services> = {
   method: HttpMethod;
@@ -60,8 +83,9 @@ function parsePath(path: string): Segment[] {
     });
 }
 
-/** Optional REST routing facade. Constructing it never opens a port. */
+/** Optional protocol server facade. Constructing it never opens a port. */
 export class HyperServer<Services = Record<never, never>> {
+  private webRtcEndpoint?: { path: string; options: WebRtcSignalOptions<Services> };
   private readonly routes: Route<Services>[] = [];
   private readonly middleware: ServerMiddleware<Services>[] = [];
   private state: "configuring" | "starting" | "running" | "closing" | "closed" = "configuring";
@@ -80,6 +104,26 @@ export class HyperServer<Services = Record<never, never>> {
     this.options = { ...options };
     this.services = options.services ?? (Object.freeze({}) as Services);
   }
+
+  readonly webrtc = {
+    signal: (path: string, options: WebRtcSignalOptions<Services>): HyperServer<Services> => {
+      this.assertConfiguring();
+      if (this.routes.length || this.middleware.length)
+        throw new Error("[HyperServer] REST and WebRTC require separate server facades.");
+      if (this.webRtcEndpoint)
+        throw new Error("[HyperServer] Only one signaling endpoint per server is supported.");
+      if (
+        !path.startsWith("/") ||
+        path.startsWith("//") ||
+        /[?#\\]/.test(path) ||
+        new URL(path, "http://localhost").pathname !== path
+      ) {
+        throw new Error("[HyperServer] Signaling path must be an absolute literal pathname.");
+      }
+      this.webRtcEndpoint = { path, options: { ...options } };
+      return this;
+    },
+  };
 
   readonly rest = {
     get: <const P extends string>(
@@ -127,6 +171,8 @@ export class HyperServer<Services = Record<never, never>> {
     handler: RouteHandler<Services, P>,
   ): this {
     this.assertConfiguring();
+    if (this.webRtcEndpoint)
+      throw new Error("[HyperServer] REST and WebRTC require separate server facades.");
     const segments = parsePath(path);
     if (
       this.routes.some(
@@ -150,6 +196,10 @@ export class HyperServer<Services = Record<never, never>> {
 
   use(middleware: ServerMiddleware<Services>): this {
     this.assertConfiguring();
+    if (this.webRtcEndpoint)
+      throw new Error(
+        "[HyperServer] REST middleware cannot authorize WebRTC signaling; use authorize.",
+      );
     this.middleware.push(middleware);
     return this;
   }
@@ -228,24 +278,42 @@ export class HyperServer<Services = Record<never, never>> {
     }
     if (this.startup) return this.startup;
     this.state = "starting";
-    this.startup = this.core
-      .listen({
-        protocol: "rest",
-        port: this.options.port,
-        host: this.options.host,
-        signal: this.options.signal,
-        handler: (request, context) => this.handle(request, context),
-      })
-      .then(
-        (handle) => {
-          if (this.state === "starting") this.state = "running";
-          return handle;
-        },
-        (error: unknown) => {
-          if (this.state !== "closing") this.state = "closed";
-          throw error;
-        },
-      );
+    const endpoint = this.webRtcEndpoint;
+    const startup = endpoint
+      ? this.core.listen({
+          protocol: "webrtc",
+          port: this.options.port,
+          host: this.options.host,
+          signal: this.options.signal,
+          signaling: {
+            path: endpoint.path,
+            ...(endpoint.options.authorize
+              ? {
+                  authorize: (request: TransportRequest) =>
+                    endpoint.options.authorize!({ request, services: this.services }),
+                }
+              : {}),
+          },
+          handler: (request, context) =>
+            endpoint.options.handler({ request, context, services: this.services }),
+        })
+      : this.core.listen({
+          protocol: "rest",
+          port: this.options.port,
+          host: this.options.host,
+          signal: this.options.signal,
+          handler: (request, context) => this.handle(request, context),
+        });
+    this.startup = startup.then(
+      (handle) => {
+        if (this.state === "starting") this.state = "running";
+        return handle;
+      },
+      (error: unknown) => {
+        if (this.state !== "closing") this.state = "closed";
+        throw error;
+      },
+    );
     return this.startup;
   }
 

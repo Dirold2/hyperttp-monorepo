@@ -294,12 +294,20 @@ export class HyperClient {
     return response.data;
   }
 
-  /** Creates a REST server facade without opening a port. Services remain application-owned. */
+  /** Creates a server facade without opening a port. Services remain application-owned. */
+  public server<S = Record<never, never>>(options: ServerOptions<S>): HyperServer<S>;
   public server<S = Record<never, never>>(
     port: number,
+    options?: Omit<ServerOptions<S>, "port">,
+  ): HyperServer<S>;
+  public server<S = Record<never, never>>(
+    portOrOptions: number | ServerOptions<S>,
     options: Omit<ServerOptions<S>, "port"> = {},
   ): HyperServer<S> {
-    return createServer(this._engine, { ...options, port });
+    return createServer(
+      this._engine,
+      typeof portOrOptions === "number" ? { ...options, port: portOrOptions } : portOrOptions,
+    );
   }
 
   /**

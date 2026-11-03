@@ -1074,6 +1074,7 @@ export class HyperCore implements IHyperCore {
       host: options.host,
       port: options.port,
       signal: options.signal,
+      signaling: options.signaling,
       onRequest,
     });
 

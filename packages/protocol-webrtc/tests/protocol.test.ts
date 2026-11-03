@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HyperTransport, RequestContext, TransportRequest } from "@hyperttp/types";
 import {
   createWebRtcProtocol,
+  webRtcControlHandler,
   WebRtcProtocol,
   WebRtcReceiver,
   WebRtcSender,
@@ -221,5 +222,46 @@ describe("receiver", () => {
     const second = createWebRtcProtocol();
     expect(first.sender).not.toBe(second.sender);
     expect(first.receiver).not.toBe(WebRtcProtocol.receiver);
+  });
+});
+
+describe("transport session and control handler", () => {
+  it("keeps application and transport session IDs separate", () => {
+    const received = new WebRtcReceiver().receive(
+      incoming(
+        { action: "connect", sessionId: "application" },
+        { "X-Webrtc-Session-Id": "transport" },
+      ),
+      context(),
+    );
+    expect(received.sessionId).toBe("application");
+    expect(received.transportSessionId).toBe("transport");
+  });
+
+  it.each(["", ["a", "b"]])("rejects invalid transport session header %j", (header) => {
+    expect(() =>
+      new WebRtcReceiver().receive(
+        incoming({ action: "connect" }, { "x-webrtc-session-id": header }),
+        context(),
+      ),
+    ).toThrow();
+  });
+
+  it("provides opt-in control ACK without accepting application messages", async () => {
+    const protocol = createWebRtcProtocol({ handler: webRtcControlHandler });
+    const receiver = new WebRtcReceiver({ handler: webRtcControlHandler });
+    expect(protocol.receiver).toBeDefined();
+    for (const action of ["connect", "stream"]) {
+      const input = receiver.receive(incoming({ action, sessionId: "app" }), context());
+      expect(await receiver.handle(input, context())).toMatchObject({
+        status: 200,
+        sessionId: "app",
+      });
+    }
+    const input = receiver.receive(
+      incoming({ action: "datachannel", payload: "private" }),
+      context(),
+    );
+    expect(await receiver.handle(input, context())).toMatchObject({ status: 501 });
   });
 });

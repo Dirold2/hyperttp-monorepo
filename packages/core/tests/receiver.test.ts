@@ -110,6 +110,17 @@ describe("HyperProtocol unified module", () => {
 });
 
 describe("HyperCore.listen (server role)", () => {
+  it("forwards transport signaling options unchanged", async () => {
+    const transport = new MockServerTransport();
+    const listen = vi.spyOn(transport, "listen");
+    const core = new HyperCore({}, transport);
+    const signaling = { path: "/rtc", authorize: vi.fn(() => true) };
+    const server = await core.listen({ protocol: "rest", signaling });
+    expect(listen.mock.calls[0]?.[0].signaling).toBe(signaling);
+    expect(signaling.authorize).not.toHaveBeenCalled();
+    await server.close();
+    await core.destroy();
+  });
   it("starts a server through the transport listen capability", async () => {
     const transport = new MockServerTransport();
     const core = new HyperCore({}, transport);

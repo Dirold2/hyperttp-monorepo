@@ -1,7 +1,7 @@
 {
   "name": "@hyperttp/protocol-webrtc",
   "version": "0.1.1",
-  "description": "WebRTC peer sessions and media-stream management for Hyperttp.",
+  "description": "Typed WebRTC protocol adapter for Hyperttp.",
   "license": "MIT",
   "author": "dirold2",
   "repository": {
@@ -31,21 +31,19 @@
     "format:check": "oxfmt src --check",
     "test": "vitest run",
     "dev": "tsx src/index.ts",
-    "build": "node ../../scripts/build-package.mjs",
-    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
-  },
-  "dependencies": {
-    "werift": "^0.25.2"
+    "build": "node ../../scripts/build-package.ts",
+    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'",
+    "test:typecheck": "tsc -p tsconfig.test.json"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
     "typescript": "^7.0.2",
-    "esbuild": "latest",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
-    "vitest": "^5.0.5"
+    "esbuild": "^0.28.2",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "vitest": "^5.1.0"
   },
   "peerDependencies": {
     "@hyperttp/types": "workspace:^"

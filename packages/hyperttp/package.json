@@ -80,7 +80,7 @@
     "smoke:deno": "deno run --no-config --no-lock --node-modules-dir=manual --allow-read --allow-env scripts/smoke-runtime.mjs",
     "smoke:browser": "node scripts/smoke-chromium.mjs",
     "dev": "tsx src/index.ts",
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "node ../../scripts/build-package.ts",
     "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
   }
 }

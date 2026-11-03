@@ -34,8 +34,18 @@ export class WebRtcReceiver implements HyperReceiver<
     if (peerHeader !== undefined && (typeof peerHeader !== "string" || !peerHeader.trim())) {
       invalidSignal("x-peer-id must be a non-empty string.");
     }
+    const sessionHeader = Object.entries(raw.headers).find(
+      ([name]) => name.toLowerCase() === "x-webrtc-session-id",
+    )?.[1];
+    if (
+      sessionHeader !== undefined &&
+      (typeof sessionHeader !== "string" || !sessionHeader.trim())
+    ) {
+      invalidSignal("x-webrtc-session-id must be a non-empty string.");
+    }
     return {
       ...body,
+      ...(sessionHeader === undefined ? {} : { transportSessionId: sessionHeader }),
       peerId: peerHeader ?? "unknown",
       headers: raw.headers,
     };

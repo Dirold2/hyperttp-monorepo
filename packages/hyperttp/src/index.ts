@@ -21,6 +21,8 @@ export * from "@hyperttp/crypto";
 
 export { HyperServer, createServer } from "./Hyperttp/Server/HyperServer.js";
 export type {
+  WebRtcRouteContext,
+  WebRtcSignalOptions,
   RouteParams,
   RouteContext,
   RouteHandler,

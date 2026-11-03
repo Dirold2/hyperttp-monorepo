@@ -35,3 +35,11 @@ export type {
   WebRtcServerHandler,
   WebRtcClientMethods,
 } from "./types/index.js";
+
+/** Opt-in control ACK; application messages require a separately supplied handler. */
+export const webRtcControlHandler: WebRtcServerHandler = (request) => {
+  if (request.action === "connect" || request.action === "stream") {
+    return { status: 200, sessionId: request.sessionId };
+  }
+  return { status: 501, payload: { error: "No application handler for this action." } };
+};

@@ -28,10 +28,10 @@
     "@hyperttp/types": "workspace:^"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/node": "latest",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
-    "vitest": "latest",
+    "vitest": "^5.1.0",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
     "esbuild": "^0.28.2"
@@ -44,7 +44,7 @@
     "format:check": "oxfmt src tests vitest.config.ts --check",
     "test": "vitest run",
     "dev": "tsx src/index.ts",
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "node ../../scripts/build-package.ts",
     "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
   }
 }

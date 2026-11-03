@@ -177,7 +177,21 @@ export class WebRtcTransport implements HyperTransport {
     const ownedSessions = new Set<string>();
     const port = options.port ?? 3000;
     const host = options.host ?? "127.0.0.1";
-    const signalingPath = "/signal";
+    const signalingPath = options.signaling?.path ?? "/signal";
+    if (
+      !signalingPath.startsWith("/") ||
+      signalingPath.startsWith("//") ||
+      /[?#\\\s]/u.test(signalingPath) ||
+      Array.from(signalingPath).some((char) => {
+        const code = char.codePointAt(0)!;
+        return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+      }) ||
+      new URL(signalingPath, "http://localhost").pathname !== signalingPath
+    ) {
+      throw new TypeError(
+        "WebRTC signaling path must be an absolute literal pathname without query or fragment",
+      );
+    }
 
     if (options.signal?.aborted) {
       throw new Error("WebRtcTransport: server startup aborted");
@@ -185,6 +199,7 @@ export class WebRtcTransport implements HyperTransport {
 
     let closed = false;
     let closePromise: Promise<void> | undefined;
+    const pendingAuthorizations = new Set<AbortController>();
 
     const httpServer: HttpServer = createServer((req, res) => {
       void (async () => {
@@ -210,6 +225,48 @@ export class WebRtcTransport implements HyperTransport {
         if (parsedUrl.pathname !== signalingPath) {
           sendJson(404, { error: "Signaling endpoint not found" });
           return;
+        }
+
+        if ((req.method === "POST" || req.method === "DELETE") && options.signaling?.authorize) {
+          const controller = new AbortController();
+          const onDisconnect = () => controller.abort();
+          const onAuthorizationAbort = () => {
+            sendJson(503, { error: "WebRTC signaling request aborted" });
+          };
+          req.once("aborted", onDisconnect);
+          res.once("close", onDisconnect);
+          controller.signal.addEventListener("abort", onAuthorizationAbort, { once: true });
+          pendingAuthorizations.add(controller);
+          try {
+            const headers: Record<string, string | string[]> = {};
+            for (const [name, value] of Object.entries(req.headers)) {
+              if (value !== undefined) headers[name] = value;
+            }
+            const allowed = await options.signaling.authorize({
+              protocol: "webrtc",
+              method: req.method,
+              url: req.url ?? "/",
+              headers,
+              signal: controller.signal,
+            });
+            if (controller.signal.aborted || req.aborted || res.destroyed) return;
+            if (closed || this.closing || options.signal?.aborted) {
+              sendJson(503, { error: "WebRTC server is closing" });
+              return;
+            }
+            if (!allowed) {
+              sendJson(403, { error: "Signaling forbidden" });
+              return;
+            }
+          } catch {
+            sendJson(403, { error: "Signaling forbidden" });
+            return;
+          } finally {
+            pendingAuthorizations.delete(controller);
+            req.off("aborted", onDisconnect);
+            res.off("close", onDisconnect);
+            controller.signal.removeEventListener("abort", onAuthorizationAbort);
+          }
         }
 
         if (req.method === "DELETE") {
@@ -261,7 +318,9 @@ export class WebRtcTransport implements HyperTransport {
             return;
           }
 
-          if (closed || this.closing) throw new Error("WebRTC server is closing");
+          if (closed || this.closing || options.signal?.aborted || req.aborted || res.destroyed) {
+            throw new Error("WebRTC signaling request aborted");
+          }
           const sessionId = payload.sessionId;
           session = this.serverSessions.get(sessionId);
           if (session && !ownedSessions.has(sessionId)) {
@@ -346,6 +405,7 @@ export class WebRtcTransport implements HyperTransport {
     const closeServer = (): Promise<void> => {
       if (closePromise) return closePromise;
       closed = true;
+      for (const controller of pendingAuthorizations) controller.abort();
       options.signal?.removeEventListener("abort", onAbort);
       closePromise = (async () => {
         const stopped = httpServer.listening

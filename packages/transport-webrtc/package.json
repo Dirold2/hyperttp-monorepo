@@ -25,6 +25,10 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "browser": {
+        "types": "./dist/browser.d.ts",
+        "import": "./dist/browser.js"
+      },
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
@@ -45,21 +49,20 @@
     "format:check": "oxfmt src --check",
     "test": "vitest run",
     "dev": "tsx src/index.ts",
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "node ../../scripts/build-package.ts",
     "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
   },
   "dependencies": {
-    "hcacher": "^0.3.0",
-    "werift": "^0.25.2"
+    "werift": "^0.26.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/node": "latest",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
     "typescript": "^7.0.2",
-    "vitest": "latest"
+    "vitest": "^5.1.0"
   },
   "peerDependencies": {
     "@hyperttp/types": "workspace:^"

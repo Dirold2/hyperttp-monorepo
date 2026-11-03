@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TransportListenOptions, TransportRequest } from "@hyperttp/types";
+import type { AnyHyperReceiver, TransportListenOptions, TransportRequest } from "@hyperttp/types";
 import { HyperCore } from "@hyperttp/core";
 import { HyperClient } from "../src/index.js";
 import { createServer } from "../src/Hyperttp/Server/HyperServer.js";
 
-function fixture() {
+function fixture(receivers: AnyHyperReceiver[] = []) {
   let receive: TransportListenOptions["onRequest"] | undefined;
   const close = vi.fn(async () => {});
   const listen = vi.fn(async (options: TransportListenOptions) => {
@@ -12,7 +12,7 @@ function fixture() {
     return { close };
   });
   const core = new HyperClient(
-    { builtInPlugins: false },
+    { builtInPlugins: false, receivers },
     {
       execute: async () => {
         throw new Error("unexpected client request");
@@ -212,3 +212,66 @@ function typeContracts(core: HyperClient) {
   });
 }
 void typeContracts;
+
+describe("WebRTC server facade", () => {
+  it("injects services into authorization and handlers without owning them", async () => {
+    const { core, listen, close } = fixture([
+      {
+        protocol: "webrtc",
+        receive: (request: TransportRequest) => request.body,
+        handle: () => {
+          throw new Error("facade handler must override receiver");
+        },
+        respond: (body: unknown) => ({ status: 200, headers: {}, body }),
+      },
+    ]);
+    const services = { token: "secret", close: vi.fn() };
+    const server = core.server({ port: 0, services });
+    const handler = vi.fn(({ services: injected }: { services: typeof services }) => ({
+      payload: injected.token,
+    }));
+    server.webrtc.signal("/calls", {
+      authorize: ({ request, services: injected }) =>
+        request.headers.authorization === injected.token,
+      handler,
+    });
+    expect(listen).not.toHaveBeenCalled();
+    const first = server.start();
+    expect(server.start()).toBe(first);
+    await first;
+    const options = listen.mock.calls[0]![0];
+    expect(options.signaling?.path).toBe("/calls");
+    const request: TransportRequest = {
+      protocol: "webrtc",
+      method: "POST",
+      url: "/calls",
+      headers: { authorization: "secret" },
+      body: { action: "connect" },
+    };
+    expect(await options.signaling?.authorize?.(request)).toBe(true);
+    await options.onRequest!(request);
+    expect(handler.mock.calls[0]![0].services).toBe(services);
+    expect(() => server.webrtc.signal("/late", { handler })).toThrow();
+    await server.close();
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(services.close).not.toHaveBeenCalled();
+    await core.destroy();
+  });
+
+  it("rejects mixed protocol facades, duplicate signaling and malformed paths", async () => {
+    const { core } = fixture();
+    const options = { handler: () => ({}) };
+    const server = core.server(0);
+    for (const path of ["signal", "//host/signal", "/signal?x=1", "/a/../signal", "/signal#hash"]) {
+      expect(() => server.webrtc.signal(path, options)).toThrow();
+    }
+    server.webrtc.signal("/signal", options);
+    expect(() => server.webrtc.signal("/other", options)).toThrow();
+    expect(() => server.rest.get("/", () => ({}))).toThrow();
+    expect(() => server.use((_ctx, next) => next())).toThrow();
+    const rest = core.server(0);
+    rest.rest.get("/", () => ({}));
+    expect(() => rest.webrtc.signal("/signal", options)).toThrow();
+    await core.destroy();
+  });
+});

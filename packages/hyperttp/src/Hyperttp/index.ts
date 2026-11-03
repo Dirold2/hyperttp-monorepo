@@ -7,6 +7,8 @@ export * from "./Utils/index.js";
 
 export { HyperServer, createServer } from "./Server/HyperServer.js";
 export type {
+  WebRtcRouteContext,
+  WebRtcSignalOptions,
   RouteParams,
   RouteContext,
   RouteHandler,

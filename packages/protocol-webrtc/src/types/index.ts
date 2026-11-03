@@ -41,6 +41,8 @@ export type WebRtcRequestOptions = Omit<WebRtcInput, "action" | "peerUrl">;
 export interface WebRtcServerInput {
   readonly action: WebRtcAction;
   readonly peerId: string;
+  /** Transport-owned session ID; distinct from application sessionId and not authentication. */
+  readonly transportSessionId?: string | undefined;
   readonly sessionId?: string | undefined;
   readonly answer?: RTCSessionDescriptionInit | undefined;
   readonly headers: Readonly<Record<string, string | string[]>>;

@@ -33,6 +33,83 @@ const clientProtocol = WebRtcProtocol;
 
 `createWebRtcProtocol({ handler?: WebRtcServerHandler } = {})` creates a protocol with its own `WebRtcSender` and `WebRtcReceiver`. Register the chosen protocol and a suitable transport using your host core's API. The factory does not register a transport or start a listener. Calling the receiver's `handle()` without a handler throws; the default singleton is not an echo server.
 
+## Using protocol and transport together
+
+```ts
+import { HyperClient } from "hyperttp";
+import { createWebRtcProtocol, webRtcControlHandler } from "@hyperttp/protocol-webrtc";
+import { WebRtcTransport } from "@hyperttp/transport-webrtc";
+
+const transport = new WebRtcTransport({ iceServers: [] }); // Local development only.
+const client = new HyperClient({
+  protocols: [createWebRtcProtocol({ handler: webRtcControlHandler })],
+}, transport);
+
+const response = await client.webrtc.receive("webrtc://127.0.0.1:3001/signal");
+if (!response.ok) throw new Error(`WebRTC request failed: ${response.status}`);
+// await client.destroy();
+```
+
+The remote server must also configure an application handler. The optional exported
+`webRtcControlHandler` acknowledges only `connect`/`stream` and returns 501 for other
+actions. Use it explicitly for media-only endpoints; it is not authentication and
+is not installed by default. Use a custom handler for data-channel messages.
+
+In the browser, import `@hyperttp/transport-webrtc/browser` explicitly, or use a
+bundler that honors the root package's `browser` export condition. The explicit
+entry is the portable choice for tooling without browser-condition resolution.
+
+`WebRtcServerInput.transportSessionId` reads the transport-supplied
+`x-webrtc-session-id` header. Use it with `transport.getServerSession(id)` on the
+server; `sessionId` remains independent application correlation data. Neither ID
+is proof of identity.
+
+## Server facade with typed services
+
+```ts
+import { HyperClient } from "hyperttp";
+import { WebRtcProtocol, webRtcControlHandler } from "@hyperttp/protocol-webrtc";
+import { WebRtcTransport } from "@hyperttp/transport-webrtc";
+
+const client = new HyperClient({ protocols: [WebRtcProtocol] }, new WebRtcTransport());
+const server = client.server({
+  host: "127.0.0.1",
+  port: 3001,
+  services: { audit: (action: string) => console.log(action) },
+});
+
+server.webrtc.signal("/calls/signal", {
+  // Optional: authorize raw signaling POST/DELETE before peer/media allocation.
+  // authorize: async ({ request, services }) => verifySessionOwner(request),
+  handler: ({ request, context, services }) => {
+    services.audit(request.action);
+    return webRtcControlHandler(request, context);
+  },
+});
+
+await server.start();
+// Remote peer: client.webrtc.receive("webrtc://127.0.0.1:3001/calls/signal")
+// await server.close();
+// await client.destroy();
+```
+
+Types come from the protocol's augmentation of `@hyperttp/types`; import the
+protocol to get typed `request`/response. Services are inferred from the object
+passed to `client.server()` and are never disposed by the facade. The existing
+`client.server(port, { services })` form also works.
+
+The `authorize` callback receives raw headers, method, URL and cancellation signal,
+not a parsed SDP body. It runs for both POST and DELETE; return `false` to deny.
+Verify session ownership as well as authentication. Exceptions deny access without
+exposing their message. Handler/Core hooks are later DataChannel-stage processing,
+not a replacement for signaling authorization. Without `authorize` the endpoint
+remains public, preserving the low-level transport default.
+
+One facade supports one literal signaling path, or REST routes, not both. Create
+separate facades with separate ports for REST and WebRTC. Register routes before
+`start()`; startup and close are idempotent. Port ranges are not implemented;
+`port` remains a single signaling TCP port, separate from WebRTC media UDP ports.
+
 ## Client requests
 
 The sender exposes these methods through the host core's `webrtc` namespace (`WebRtcClientMethods`):
@@ -77,6 +154,9 @@ The URL is interpreted by the selected transport; it does not select an HTTP plu
 `WebRtcTransportRequest extends TransportRequest` describes the WebRTC-specific request metadata. `prepare()` builds a POST-shaped request with `protocol: "webrtc"`, the peer URL, JSON content type, an action/payload body, signaling fields, and transport options such as `iceServers`, `localStream`, receive flags, and `channelLabel`.
 
 The signaling contract carries `offer`, `answer`, `candidate`, and `sessionId` through the relevant client/server request and response types. `sessionId` is application-supplied correlation data, not a session allocated or tracked by this package. The adapter does not generate SDP, apply descriptions, buffer ICE candidates, or validate signaling state.
+With `@hyperttp/transport-webrtc`, these actions are application messages over an
+already negotiated DataChannel. They do not control the transport's HTTP SDP
+negotiation, which is owned by the transport.
 
 `send()` checks `transport.supports("webrtc")` **if the method exists** and rejects a transport that reports no support; otherwise it checks the optional `protocols` list and delegates to `transport.execute()`. A transport without `supports` is not rejected merely for omitting that optional method.
 
@@ -95,16 +175,16 @@ Cancellation uses an `AbortSignal`; positive timeouts produce a timeout signal. 
 - Media capture, track cleanup, RTP/SRTP processing, and physical DataChannel I/O.
 - Signaling servers, browser adapters, and server WebRTC runtimes.
 
-See [architecture notes](docs/architecture.md) and [test scope](tests/README.md).
+See [test scope](tests/README.md).
 
 ## Development scripts
 
 ```bash
-npm install
-npm run build
-npm run test
-npm run test:typecheck
-npm run lint
-npm run format:check
+# From the monorepo root:
+node scripts/workspaces.ts build protocol-webrtc
+node scripts/workspaces.ts test protocol-webrtc
+bun run --cwd packages/protocol-webrtc test:typecheck
+node scripts/workspaces.ts lint protocol-webrtc
+node scripts/workspaces.ts format:check protocol-webrtc
 ```
 

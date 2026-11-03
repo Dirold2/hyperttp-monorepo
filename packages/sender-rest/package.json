@@ -23,16 +23,16 @@
     "url": "git+https://github.com/IT-IF-OR/hyperttp-rest.git"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/node": "latest",
-    "esbuild": "^0.28.1"
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2"
   },
   "peerDependencies": {
-    "typescript": "^7",
+    "typescript": "^7.0.2",
     "@hyperttp/types": "workspace:^"
   },
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "node ../../scripts/build-package.ts",
     "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'",
     "typecheck": "tsc --noEmit"
   }

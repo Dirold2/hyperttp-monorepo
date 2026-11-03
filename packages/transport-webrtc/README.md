@@ -69,6 +69,7 @@ transport.onTrack(({ stream }) => {
 // once the remote track is available.
 await transport.execute({
   method: "POST",
+  protocol: "webrtc",
   url: "webrtc://127.0.0.1:3001/signal",
   headers: {},
   body: { action: "stream" },
@@ -133,3 +134,37 @@ npm run build
 
 Network integration tests use loopback and no public STUN servers. PCM adapter
 integration tests require FFmpeg with libopus.
+
+## Integration boundaries
+
+The root entry has a `browser` export condition for bundlers that support it;
+`/browser` remains the explicit, portable browser entry. The PCM adapter remains
+server-only. Node and browser transports can also tunnel other protocol requests
+through the DataChannel; they intentionally do not restrict `protocol` to WebRTC.
+
+The protocol's `sessionId` is application metadata. The server transport inserts
+its own `x-webrtc-session-id`, exposed by `protocol-webrtc` as `transportSessionId`.
+It is suitable for `getServerSession(id)`, not authentication.
+
+Configure an application ACK-handler on protocol servers even for media-only
+requests (for example `webRtcControlHandler` from `protocol-webrtc`). Media can
+start during negotiation before that handler is invoked. Core request hooks and
+DataChannel handlers therefore do **not** authorize HTTP signaling or media access.
+For private streams place the signaling endpoint behind an authenticated gateway
+that also enforces session ownership and resource limits. Treat `sessionId`,
+`x-peer-id`, and `x-webrtc-session-id` as metadata, never user identity.
+
+Protocol `offer`/`answer`/`candidate` actions are application messages; the built-in
+transport uses its own HTTP SDP negotiation rather than these messages.
+
+## Custom signaling path and early authorization
+
+Low-level `transport.listen()` and `core.listen()` accept
+`signaling: { path: "/calls/signal", authorize: async request => boolean }`.
+Authorization runs for POST and DELETE before SDP parsing, session lookup or peer
+creation. Returning false or throwing denies access with 403. The raw request has
+headers/method/URL and an AbortSignal, no body. On disconnect or listener shutdown,
+the signal aborts; a late authorization result cannot create a new session.
+Core forwards these options unchanged. The high-level `server.webrtc.signal()`
+facade additionally injects typed application services into both callbacks.
+The default remains `/signal` without authorization for backward compatibility.
