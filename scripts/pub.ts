@@ -146,6 +146,8 @@ await cli("pub → npm", async () => {
             [
               "publish",
               archive,
+              "--loglevel",
+              "error",
               "--access",
               "public",
               "--ignore-scripts",

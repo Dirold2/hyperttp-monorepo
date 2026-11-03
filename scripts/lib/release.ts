@@ -1,6 +1,7 @@
 import { mkdtemp, rm, readdir, readFile, writeFile, cp, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { packages, ordered, root, type Workspace } from "../workspaces.ts";
 import { logStep, logDetail } from "./format.ts";
@@ -36,9 +37,25 @@ export async function releaseTargets(args: string[]) {
 export async function withArchive(
   row: Workspace,
   task: (archive: string, temp: string) => Promise<void>,
+  build = true,
 ) {
-  logStep(`${row.pkg.name}: сборка с локальными зависимостями…`);
-  capture("bun", ["run", "build", row.short]);
+  const prepared = process.env.HYPERTTP_RELEASE_ARCHIVE;
+  if (prepared) {
+    const receipt = JSON.parse(await readFile(prepared + ".json", "utf8"));
+    const pkg = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"));
+    await verifyPreparedArchive(prepared, receipt, row.dir, pkg.name, pkg.version);
+    const temp = await mkdtemp(join(tmpdir(), "hyperttp-release-output-"));
+    try {
+      await task(prepared, temp);
+    } finally {
+      await rm(temp, { recursive: true, force: true });
+    }
+    return;
+  }
+  if (build) {
+    logStep(`${row.pkg.name}: сборка с локальными зависимостями…`);
+    capture("bun", ["run", "build", row.short]);
+  }
   const temp = await mkdtemp(join(tmpdir(), "hyperttp-release-"));
   try {
     capture("bun", ["pm", "pack", "--ignore-scripts", "--destination", temp], row.dir);
@@ -86,4 +103,19 @@ export async function prepareDist(archive: string, temp: string) {
   }
   logDetail(`Манифест dist подготовлен: ${pkg.name}@${pkg.version}`);
   return out;
+}
+
+export async function verifyPreparedArchive(
+  archive: string,
+  receipt: { directory: string; name: string; version: string; sha256: string },
+  directory: string,
+  name: string,
+  version: string,
+) {
+  if (receipt.directory !== directory || receipt.name !== name || receipt.version !== version)
+    throw new Error("Prepared release archive does not match package/version");
+  const sha256 = createHash("sha256")
+    .update(await readFile(archive))
+    .digest("hex");
+  if (sha256 !== receipt.sha256) throw new Error("Prepared release archive checksum mismatch");
 }

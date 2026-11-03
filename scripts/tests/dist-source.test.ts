@@ -183,3 +183,43 @@ test("recognizes a previous release without receipt when only workspace versions
     );
   });
 });
+
+test("prepared archive is reusable only for its package/version and exact bytes", async () => {
+  const { createHash } = await import("node:crypto");
+  const { verifyPreparedArchive, withArchive } = await import("../lib/release.ts");
+  await fixture(async (repo) => {
+    const file = join(repo, "artifact.tgz");
+    await writeFile(file, "packed artifact");
+    const receipt = {
+      directory: repo,
+      name: "test",
+      version: "1.0.0",
+      sha256: createHash("sha256").update("packed artifact").digest("hex"),
+    };
+    await writeFile(file + ".json", JSON.stringify(receipt));
+    await verifyPreparedArchive(file, receipt, repo, "test", "1.0.0");
+    await assert.rejects(
+      verifyPreparedArchive(file, receipt, repo, "test", "2.0.0"),
+      /does not match/,
+    );
+    const previous = process.env.HYPERTTP_RELEASE_ARCHIVE;
+    process.env.HYPERTTP_RELEASE_ARCHIVE = file;
+    try {
+      let calls = 0;
+      for (let i = 0; i < 2; i++)
+        await withArchive({ dir: repo, short: "test", pkg: { name: "test" } }, async (archive) => {
+          assert.equal(await readFile(archive, "utf8"), "packed artifact");
+          calls++;
+        });
+      assert.equal(calls, 2);
+    } finally {
+      if (previous === undefined) delete process.env.HYPERTTP_RELEASE_ARCHIVE;
+      else process.env.HYPERTTP_RELEASE_ARCHIVE = previous;
+    }
+    await writeFile(file, "modified");
+    await assert.rejects(
+      verifyPreparedArchive(file, receipt, repo, "test", "1.0.0"),
+      /checksum mismatch/,
+    );
+  });
+});

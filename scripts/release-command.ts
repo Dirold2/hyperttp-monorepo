@@ -4,12 +4,12 @@ import {
   sourceSnapshot,
 } from "./lib/release-source.ts";
 import { spawnSync } from "node:child_process";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { packages, ordered, root } from "./workspaces.ts";
-import { capture } from "./lib/release.ts";
+import { capture, withArchive } from "./lib/release.ts";
 import { differsFromNpm } from "./lib/release-compare.ts";
 import { bumpVersion, parsePackageBump, type Bump } from "./lib/release-version.ts";
 import { cli, logStep, logDetail, summaryBox, runCommand } from "./lib/format.ts";
@@ -318,6 +318,31 @@ await cli("release", async () => {
   checks(plan.phase === "versioned" ? ["build", "typecheck"] : undefined);
   await assertSnapshots(plan.snapshots!);
   for (const entry of plan.entries) {
+    if (plan.dist.includes(entry.short) && plan.pub.includes(entry.short)) continue;
+    const row = rows.find((row) => row.short === entry.short)!;
+    const artifactDir = join(stateDir, "artifacts");
+    await mkdir(artifactDir, { recursive: true });
+    const archiveFile = join(artifactDir, `${entry.short}-${entry.to}.tgz`);
+    logStep(`${entry.name}: упаковка проверенной сборки…`);
+    await withArchive(
+      row,
+      async (archive) => {
+        await cp(archive, archiveFile);
+        await writeFile(
+          archiveFile + ".json",
+          JSON.stringify({
+            directory: row.dir,
+            name: entry.name,
+            version: entry.to,
+            sha256: createHash("sha256")
+              .update(await readFile(archiveFile))
+              .digest("hex"),
+          }) + "\n",
+        );
+      },
+      false,
+    );
+    await assertSnapshots(plan.snapshots!);
     if ((await manifest(entry.short)).version !== entry.to)
       throw new Error("Release manifest version mismatch");
     for (const stage of ["dist", "pub"] as const) {
@@ -328,6 +353,7 @@ await cli("release", async () => {
         const result = spawnSync("bun", ["run", "scripts/pub.ts", entry.short], {
           cwd: root,
           stdio: "inherit",
+          env: { ...process.env, HYPERTTP_RELEASE_ARCHIVE: archiveFile },
           timeout: 30 * 60_000,
         });
         if (result.status === 2) {
@@ -339,7 +365,16 @@ await cli("release", async () => {
         }
         if (result.error || result.status !== 0)
           throw new Error(result.error?.message || `pub: exit ${result.status}`);
-      } else runCommand("bun", ["run", "scripts/dist.ts", entry.short], root, 30 * 60_000);
+      } else {
+        const result = spawnSync("bun", ["run", "scripts/dist.ts", entry.short], {
+          cwd: root,
+          stdio: "inherit",
+          timeout: 30 * 60_000,
+          env: { ...process.env, HYPERTTP_RELEASE_ARCHIVE: archiveFile },
+        });
+        if (result.error || result.status !== 0)
+          throw new Error(result.error?.message || `dist: exit ${result.status}`);
+      }
       plan[stage].push(entry.short);
       await save(plan);
     }
