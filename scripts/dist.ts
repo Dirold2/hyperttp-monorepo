@@ -1,22 +1,30 @@
-import { cp, readdir, rm, mkdtemp } from "node:fs/promises";
+import { sourceRelease } from "./lib/dist-source.ts";
+import { cp, readdir, rm, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cli, logStep, logDetail, summaryBox } from "./lib/format.ts";
 import { capture, releaseTargets, withArchive, prepareDist } from "./lib/release.ts";
 
-await cli("dist → __dist__", async () => {
+await cli("dist → main + tag + __dist__", async () => {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const targets = await releaseTargets(args);
   let changed = 0,
     skipped = 0;
   for (const row of targets) {
-    const own = capture("git", ["rev-parse", "--show-toplevel"], row.dir) === row.dir;
-    const url = own
-      ? capture("git", ["remote", "get-url", "origin"], row.dir)
-      : capture("git", ["remote", "get-url", row.short]);
+    const version = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"))
+      .version as string;
+    const source = { tag: `v${version}` };
+    const url = capture("git", ["remote", "get-url", "origin"], row.dir);
     await withArchive(row, async (archive, temp) => {
       const output = await prepareDist(archive, temp);
+      if (dryRun) {
+        await sourceRelease(row.dir, version, true);
+        logDetail(`[would push] ${row.short}: main + ${source.tag}`);
+      } else {
+        logStep(`${row.short}: push main + ${source.tag}…`);
+        await sourceRelease(row.dir, version);
+      }
       // An isolated clone leaves the source checkout, index and branches untouched.
       const repo = await mkdtemp(join(tmpdir(), "hyperttp-dist-git-"));
       try {
@@ -43,7 +51,7 @@ await cli("dist → __dist__", async () => {
           return;
         }
         // Obtain the user's identity from the source repo, including local config.
-        const name = capture("git", ["var", "GIT_AUTHOR_IDENT"]);
+        const name = capture("git", ["var", "GIT_AUTHOR_IDENT"], row.dir);
         const match = /^(.*) <([^>]+)>/.exec(name);
         if (!match) throw new Error("Не удалось определить Git identity.");
         capture(
@@ -55,7 +63,7 @@ await cli("dist → __dist__", async () => {
             `user.email=${match[2]}`,
             "commit",
             "-m",
-            `chore: dist ${row.pkg.name}`,
+            `chore: release v${version}`,
           ],
           repo,
         );
