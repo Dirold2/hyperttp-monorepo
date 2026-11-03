@@ -1,9 +1,12 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
-import { config as loadEnv } from "dotenv";
+import { loadEnvFile } from "node:process";
 
-// Load environment variables from .env at project root
-loadEnv({ path: ".env" });
+try {
+  loadEnvFile(".env");
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
 
 export default defineConfig({
   test: {
