@@ -13,7 +13,30 @@ await cli("pub → npm", async () => {
     skipped = 0;
   // Explicit registry prevents accidental publication to a configured private registry.
   const registry = "https://registry.npmjs.org/";
-  if (!dryRun) capture("npm", ["whoami", "--registry", registry]);
+  if (!dryRun) {
+    const identity = spawnSync("npm", ["whoami", "--registry", registry], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 120_000,
+    });
+    if (identity.error) throw identity.error;
+    if (identity.status !== 0) {
+      if (!/\b(E401|ENEEDAUTH)\b/.test(identity.stderr || identity.stdout)) {
+        throw new Error(identity.stderr || identity.stdout || "npm whoami failed");
+      }
+      if (!process.stdin.isTTY)
+        throw new Error("Требуется npm login. Запустите pub в интерактивном терминале.");
+      logStep("Авторизация npm в браузере…");
+      const login = spawnSync("npm", ["login", "--auth-type=web", "--registry", registry], {
+        cwd: root,
+        stdio: "inherit",
+        timeout: 10 * 60_000,
+      });
+      if (login.error || login.status !== 0)
+        throw new Error(login.error?.message || "npm login failed");
+      capture("npm", ["whoami", "--registry", registry]);
+    }
+  }
   for (const row of targets) {
     const version = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"))
       .version as string;
@@ -53,10 +76,14 @@ await cli("pub → npm", async () => {
           registry,
           ...(dryRun ? ["--dry-run"] : []),
         ],
-        { cwd: root, stdio: "inherit", timeout: 180_000 },
+        { cwd: root, stdio: "inherit", timeout: 10 * 60_000 },
       );
-      if (result.error || result.status !== 0)
+      if (result.error || result.status !== 0) {
+        logDetail(
+          "EOTP: завершите подтверждение в npm. E409 previously staged: проверьте ожидающую публикацию в npm; не повышайте версию и не повторяйте PUT вслепую. После завершения используйте release --resume.",
+        );
         throw new Error(result.error?.message || `npm publish: ${result.status}`);
+      }
       published++;
     });
   }

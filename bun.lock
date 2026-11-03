@@ -233,7 +233,7 @@
     },
     "packages/protocol-webrtc": {
       "name": "@hyperttp/protocol-webrtc",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -385,7 +385,7 @@
     },
     "packages/types": {
       "name": "@hyperttp/types",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "devDependencies": {
         "@types/node": "^26.6.6",
         "oxfmt": "^0.75.0",

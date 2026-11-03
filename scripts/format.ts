@@ -27,10 +27,17 @@ export function summaryBox(title: string, rows: Record<string, string | number>)
 }
 
 // Keep successful commands quiet; preserve their full diagnostic output on failure.
-export function runCommand(command: string, args: string[], cwd: string, timeout = 120_000) {
+export function runCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  timeout = 120_000,
+  interactive = false,
+) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    stdio: interactive ? "inherit" : "pipe",
     timeout,
     maxBuffer: 32 * 1024 * 1024,
   });

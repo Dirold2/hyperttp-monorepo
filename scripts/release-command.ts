@@ -264,7 +264,13 @@ await cli("release", async () => {
     for (const stage of ["dist", "pub"] as const) {
       if (plan[stage].includes(entry.short)) continue;
       logStep(`${entry.name}: ${stage}`);
-      runCommand("bun", ["run", `scripts/${stage}.ts`, entry.short], root, 30 * 60_000);
+      runCommand(
+        "bun",
+        ["run", `scripts/${stage}.ts`, entry.short],
+        root,
+        30 * 60_000,
+        stage === "pub",
+      );
       plan[stage].push(entry.short);
       await save(plan);
     }
