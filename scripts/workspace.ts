@@ -82,7 +82,14 @@ export async function ownsGitRoot(dir: string) {
 
 // Only Git's ordinary HTTPS, SSH, and filesystem transports are accepted, not helpers.
 export function repositoryUrl(input: string, base = root): string {
-  if (!input || input.startsWith("-") || /[\x00-\x20\x7f]/.test(input))
+  if (
+    !input ||
+    input.startsWith("-") ||
+    Array.from(input).some((char) => {
+      const code = char.codePointAt(0)!;
+      return code <= 0x20 || code === 0x7f;
+    })
+  )
     throw new Error("Invalid repository URL");
   if (/^(https|ssh|file):\/\//.test(input)) {
     const url = new URL(input);
