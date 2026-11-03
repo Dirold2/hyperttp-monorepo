@@ -95,11 +95,7 @@ function applyStealthHeaders(
   }
 
   const currentUA = headers["user-agent"];
-  if (
-    currentUA === undefined ||
-    currentUA === "hyperttp/2.0" ||
-    currentUA === "Hyperttp/2.0"
-  ) {
+  if (currentUA === undefined || currentUA === "hyperttp/2.0" || currentUA === "Hyperttp/2.0") {
     const browserUA = STEALTH_UA_PRESETS[presetName];
     if (browserUA) {
       headers["user-agent"] = browserUA;
@@ -109,9 +105,7 @@ function applyStealthHeaders(
   return headers;
 }
 
-function toTransportStream(
-  body: Readable,
-): ReadableStream<Uint8Array> & TransportStreamExtensions {
+function toTransportStream(body: Readable): ReadableStream<Uint8Array> & TransportStreamExtensions {
   const bodyWeb = Readable.toWeb(body) as ReadableStream<Uint8Array> & TransportStreamExtensions;
 
   bodyWeb.dump = async (): Promise<void> => {
@@ -124,7 +118,6 @@ function toTransportStream(
 
   return bodyWeb;
 }
-
 
 function headersToFlatArray(headers: Record<string, string>): string[] {
   const flat: string[] = [];
@@ -244,7 +237,6 @@ export class UndiciTransport implements HyperTransport {
     const body = (req.body ?? null) as Dispatcher.DispatchOptions["body"];
     const pool = this.isExternal ? this.pool : this.getPool(parsed.origin, stealth);
 
-
     const options: Dispatcher.RequestOptions = {
       path: parsed.path,
       method: req.method,
@@ -279,9 +271,7 @@ export class UndiciTransport implements HyperTransport {
 
       const rawBody = new Uint8Array(await response.body.arrayBuffer());
 
-      const payload = encoding
-        ? await decompressBuffer(rawBody, encoding)
-        : rawBody;
+      const payload = encoding ? await decompressBuffer(rawBody, encoding) : rawBody;
 
       if (encoding) {
         delete responseHeaders["content-encoding"];

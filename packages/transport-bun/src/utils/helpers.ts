@@ -133,7 +133,7 @@ export function normalizeHeaders(headers: TransportRequest["headers"]): Record<s
     if (value == null) continue;
 
     const lowerKey = key.toLowerCase();
-    const target = out ??= Object.create(null);
+    const target = (out ??= Object.create(null));
     if (Array.isArray(value)) {
       target[lowerKey] = lowerKey === "cookie" ? value.join("; ") : value.join(", ");
       continue;
