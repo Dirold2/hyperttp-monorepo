@@ -58,10 +58,10 @@ await cli("release", async () => {
     await mkdir(stateDir, { recursive: true });
     await writeFile(stateFile, JSON.stringify(plan, null, 2) + "\n");
   };
-  const fingerprint = () =>
+  const fingerprint = (sourceHead = head) =>
     createHash("sha256")
-      .update(head)
-      .update(capture("git", ["diff", "--binary", "HEAD", "--", "."]))
+      .update(sourceHead)
+      .update(capture("git", ["diff", "--binary", sourceHead, "--", "."]))
       .digest("hex");
   const checks = () => {
     for (const task of ["build", "typecheck", "lint", "format:check", "test"]) {
@@ -99,10 +99,18 @@ await cli("release", async () => {
       throw new Error(
         "Version update was interrupted. Inspect package.json/bun.lock and the saved plan before proceeding; publication has not started.",
       );
-    if (plan.head !== head)
-      throw new Error(
-        "HEAD changed since release planning; refusing to resume a different source snapshot",
-      );
+    if (plan.head !== head) {
+      if (
+        plan.phase !== "versioned" ||
+        !plan.fingerprint ||
+        fingerprint(plan.head) !== plan.fingerprint
+      ) {
+        throw new Error(
+          "HEAD changed and contents differ from the saved release snapshot; refusing to resume",
+        );
+      }
+      logDetail("HEAD изменился, но содержимое совпадает с планом: продолжаем тот же выпуск.");
+    }
   } else {
     if (saved && saved.phase !== "done")
       throw new Error("Pending release exists; use --resume. Plan: " + stateFile);
@@ -221,7 +229,7 @@ await cli("release", async () => {
     throw new Error("Commit untracked files before release");
   if (plan.phase === "planned" && capture("git", ["status", "--porcelain"]))
     throw new Error("Commit all changes before release");
-  if (plan.phase === "versioned" && plan.fingerprint !== fingerprint())
+  if (plan.phase === "versioned" && plan.fingerprint !== fingerprint(plan.head))
     throw new Error(
       "Working tree changed since versioning; restore the release snapshot before --resume",
     );
@@ -254,7 +262,7 @@ await cli("release", async () => {
     }
     runCommand("bun", ["install", "--lockfile-only", "--ignore-scripts"], root);
     plan.phase = "versioned";
-    plan.fingerprint = fingerprint();
+    plan.fingerprint = fingerprint(plan.head);
     await save(plan);
   }
   checks();
