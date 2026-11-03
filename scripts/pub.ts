@@ -1,3 +1,7 @@
+import {
+  publishedVersion as registryPublishedVersion,
+  waitForPublication,
+} from "./npm-registry.ts";
 import { listStage, verifyStage } from "./npm-stage.ts";
 import { readFile, writeFile, mkdir, access, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -40,31 +44,8 @@ await cli("pub → npm", async () => {
   }
   // Stage support is required: silently falling back to repeated publish is unsafe.
   capture("npm", ["stage", "--help"]);
-  const publishedVersion = (name: string, version: string): boolean => {
-    const result = spawnSync(
-      "npm",
-      [
-        "view",
-        `${name}@${version}`,
-        "version",
-        "--json",
-        "--prefer-online",
-        "--registry",
-        registry,
-      ],
-      { cwd: root, encoding: "utf8", timeout: 120_000 },
-    );
-    if (result.error) throw result.error;
-    if (result.status === 0) return JSON.parse(result.stdout) === version;
-    let code: string | undefined;
-    try {
-      code = JSON.parse(result.stdout || result.stderr).error?.code;
-    } catch {
-      /* Report original diagnostics. */
-    }
-    if (code === "E404") return false;
-    throw new Error(result.stderr || result.stdout || "npm view failed");
-  };
+  const publishedVersion = (name: string, version: string) =>
+    registryPublishedVersion(name, version, registry);
   for (const row of targets) {
     const version = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"))
       .version as string;
@@ -140,14 +121,17 @@ await cli("pub → npm", async () => {
         if (result.error) throw result.error;
         if (!dryRun) {
           // An interrupted proof-of-presence flow may already have staged the version.
-          if (!publishedVersion(row.pkg.name, version) && !(await approve())) {
+          if (
+            !(await waitForPublication(() => publishedVersion(row.pkg.name, version))) &&
+            !(await approve())
+          ) {
             throw new Error(
               "npm publication is not visible and no accessible stage exists. Do not retry PUT blindly or bump the version: inspect npm account/stages or contact npm support.",
             );
           }
         } else if (result.status !== 0) throw new Error(`npm publish --dry-run: ${result.status}`);
       }
-      if (!dryRun && !publishedVersion(row.pkg.name, version)) {
+      if (!dryRun && !(await waitForPublication(() => publishedVersion(row.pkg.name, version)))) {
         throw new Error(
           "Approval completed but version is not yet visible in npm. Wait, then --resume; stage is not marked as published.",
         );
