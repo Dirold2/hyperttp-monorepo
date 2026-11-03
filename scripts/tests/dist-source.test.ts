@@ -157,3 +157,29 @@ test("allows successive dirty-source releases without advancing local HEAD", asy
     assert.equal(capture("git", ["merge-base", previous, "main"], remote), previous);
   });
 });
+
+test("recognizes a previous release without receipt when only workspace versions changed", async () => {
+  await fixture(async (repo) => {
+    const pkg = {
+      name: "test",
+      version: "1.0.1",
+      peerDependencies: { "@hyperttp/types": "workspace:^" },
+    };
+    await writeFile(join(repo, "package.json"), JSON.stringify(pkg));
+    await writeFile(join(repo, "old.ts"), "updated source");
+    await sourceRelease(repo, "1.0.1");
+    const receipt = capture(
+      "git",
+      ["rev-parse", "--git-path", "hyperttp-source-release.json"],
+      repo,
+    );
+    await rm(join(repo, receipt));
+    await writeFile(join(repo, "package.json"), JSON.stringify({ ...pkg, version: "1.0.2" }));
+    await sourceRelease(repo, "1.0.2", false, true);
+    await writeFile(join(repo, "old.ts"), "unreconciled local edit");
+    await assert.rejects(
+      sourceRelease(repo, "1.0.2", false, true),
+      /Remote main contains source changes/,
+    );
+  });
+});

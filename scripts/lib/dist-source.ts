@@ -108,57 +108,98 @@ export async function sourceRelease(
           const remoteManifest = JSON.parse(
             capture("git", ["show", `${remoteHead}:package.json`], repo),
           );
-          const normalize = (pkg: Record<string, any>) => {
-            const value = resolveWorkspaceVersions(pkg, versions);
-            delete value.version;
-            return JSON.stringify(value);
-          };
-          if (normalize(remoteManifest) !== normalize(resolved)) {
-            const baseManifest = JSON.parse(capture("git", ["show", `${head}:package.json`], repo));
-            if (normalize(remoteManifest) !== normalize(baseManifest))
-              throw new Error(
-                "Remote main contains source changes in package.json; reconcile it locally before release",
+          // Older tooling left no receipt. Accept that baseline only when all
+          // source files match and the manifest differs solely in release versions.
+          const previousVersions = { ...versions };
+          for (const field of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+            "optionalDependencies",
+          ]) {
+            for (const [name, range] of Object.entries(manifest[field] ?? {})) {
+              if (typeof range !== "string" || !range.startsWith("workspace:")) continue;
+              const publishedRange = remoteManifest[field]?.[name];
+              const prefix = range.slice("workspace:".length);
+              const expectedPrefix = prefix === "*" ? "" : prefix;
+              if (typeof publishedRange !== "string" || !publishedRange.startsWith(expectedPrefix))
+                continue;
+              const previousVersion = publishedRange.slice(expectedPrefix.length);
+              if (/^\d+\.\d+\.\d+$/.test(previousVersion)) previousVersions[name] = previousVersion;
+            }
+          }
+          const previousManifest = resolveWorkspaceVersions(manifest, previousVersions);
+          delete previousManifest.version;
+          const remoteWithoutVersion = { ...remoteManifest };
+          delete remoteWithoutVersion.version;
+          const canonical = (value: any): string =>
+            JSON.stringify(value, (_key, item) =>
+              item && typeof item === "object" && !Array.isArray(item)
+                ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
+                : item,
+            );
+          const sourceDifference = capture(
+            "git",
+            ["diff", tree, remoteHead, "--", ".", ":(exclude)package.json"],
+            repo,
+          );
+          const matchesPreviousRelease =
+            !sourceDifference && canonical(previousManifest) === canonical(remoteWithoutVersion);
+          if (!matchesPreviousRelease) {
+            const normalize = (pkg: Record<string, any>) => {
+              const value = resolveWorkspaceVersions(pkg, versions);
+              delete value.version;
+              return JSON.stringify(value);
+            };
+            if (normalize(remoteManifest) !== normalize(resolved)) {
+              const baseManifest = JSON.parse(
+                capture("git", ["show", `${head}:package.json`], repo),
               );
-          }
-          const intended = capture(
-            "git",
-            [...identityArgs, "commit-tree", tree, "-p", head, "-m", "release snapshot"],
-            repo,
-          );
-          // Replace the remote manifest in a temporary index/tree, not the source checkout.
-          capture("git", ["read-tree", remoteHead], repo);
-          capture("git", ["add", "package.json"], repo);
-          const remoteTree = capture("git", ["write-tree"], repo);
-          const normalizedRemote = capture(
-            "git",
-            [
-              ...identityArgs,
-              "commit-tree",
-              remoteTree,
-              "-p",
-              remoteHead,
-              "-m",
-              "normalized remote manifest",
-            ],
-            repo,
-          );
-          let mergedTree: string;
-          try {
-            mergedTree = capture(
+              if (normalize(remoteManifest) !== normalize(baseManifest))
+                throw new Error(
+                  "Remote main contains source changes in package.json; reconcile it locally before release",
+                );
+            }
+            const intended = capture(
               "git",
-              ["merge-tree", "--write-tree", intended, normalizedRemote],
+              [...identityArgs, "commit-tree", tree, "-p", head, "-m", "release snapshot"],
               repo,
-            ).split("\n")[0]!;
-          } catch {
-            throw new Error(
-              "Remote main contains source changes conflicting with the release snapshot; reconcile it locally before release",
             );
+            // Replace the remote manifest in a temporary index/tree, not the source checkout.
+            capture("git", ["read-tree", remoteHead], repo);
+            capture("git", ["add", "package.json"], repo);
+            const remoteTree = capture("git", ["write-tree"], repo);
+            const normalizedRemote = capture(
+              "git",
+              [
+                ...identityArgs,
+                "commit-tree",
+                remoteTree,
+                "-p",
+                remoteHead,
+                "-m",
+                "normalized remote manifest",
+              ],
+              repo,
+            );
+            let mergedTree: string;
+            try {
+              mergedTree = capture(
+                "git",
+                ["merge-tree", "--write-tree", intended, normalizedRemote],
+                repo,
+              ).split("\n")[0]!;
+            } catch {
+              throw new Error(
+                "Remote main contains source changes conflicting with the release snapshot; reconcile it locally before release",
+              );
+            }
+            if (mergedTree !== tree)
+              throw new Error(
+                "Remote main contains source changes absent from the release snapshot; reconcile it locally before release",
+              );
+            capture("git", ["read-tree", tree], repo);
           }
-          if (mergedTree !== tree)
-            throw new Error(
-              "Remote main contains source changes absent from the release snapshot; reconcile it locally before release",
-            );
-          capture("git", ["read-tree", tree], repo);
         }
 
         const commit = capture(
