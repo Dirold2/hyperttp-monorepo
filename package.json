@@ -25,7 +25,7 @@
     "smoke:browser": "bun run --cwd packages/hyperttp smoke:browser",
     "pack": "node scripts/pack.ts",
     "release": "node scripts/release-command.ts",
-    "release:test": "node --test scripts/release-version.test.ts scripts/release-compare.test.ts",
+    "release:test": "node --test scripts/release-version.test.ts scripts/release-compare.test.ts scripts/npm-stage.test.ts",
     "dist": "node scripts/dist.ts",
     "pub": "node scripts/pub.ts",
     "subtree:push": "node scripts/subtree.ts",
