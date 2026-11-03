@@ -11,7 +11,7 @@ import { createInterface } from "node:readline/promises";
 import { packages, ordered, root } from "./workspaces.ts";
 import { capture } from "./lib/release.ts";
 import { differsFromNpm } from "./lib/release-compare.ts";
-import { bumpVersion, type Bump } from "./lib/release-version.ts";
+import { bumpVersion, parsePackageBump, type Bump } from "./lib/release-version.ts";
 import { cli, logStep, logDetail, summaryBox, runCommand } from "./lib/format.ts";
 
 type Entry = { short: string; name: string; from: string; to: string };
@@ -31,7 +31,7 @@ await cli("release", async () => {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
     logDetail(
-      "release <packages | --all> [--bump patch|minor|major] [--dry-run] [--yes]\nrelease --resume [--yes]\nSelected packages and dependencies are checked. Source commits are created in isolation; no force push.",
+      "release <packages | --all> [--bump patch|minor|major] [--bump-package voice=minor] [--dry-run] [--yes]\nrelease --resume [--yes]\nSelected packages and dependencies are checked. Source commits are created in isolation; no force push.",
     );
     return;
   }
@@ -40,9 +40,16 @@ await cli("release", async () => {
     yes = args.includes("--yes");
   let bump: Bump = "patch";
   const names: string[] = [];
+  const packageBumps = new Map<string, Bump>();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (["--dry-run", "--resume", "--yes"].includes(arg)) continue;
+    if (arg === "--bump-package") {
+      const [name, value] = parsePackageBump(args[++i]);
+      if (packageBumps.has(name)) throw new Error(`Duplicate package bump: ${name}`);
+      packageBumps.set(name, value);
+      continue;
+    }
     if (arg === "--bump") {
       const value = args[++i];
       if (value !== "patch" && value !== "minor" && value !== "major")
@@ -53,8 +60,8 @@ await cli("release", async () => {
     if (arg.startsWith("--") && arg !== "--all") throw new Error(`Unknown option: ${arg}`);
     names.push(arg);
   }
-  if (resume && (names.length || args.includes("--bump")))
-    throw new Error("--resume uses the saved plan; do not specify packages or --bump");
+  if (resume && (names.length || args.includes("--bump") || packageBumps.size))
+    throw new Error("--resume uses the saved plan; do not specify packages or bump options");
   const rows = ordered(await packages());
   const manifest = async (short: string) =>
     JSON.parse(await readFile(join(root, "packages", short, "package.json"), "utf8"));
@@ -161,6 +168,15 @@ await cli("release", async () => {
         )
         .map((row) => row.pkg.name),
     );
+    const overrides = new Map<string, Bump>();
+    for (const [name, value] of packageBumps) {
+      const row = rows.find((row) => row.short === name || row.pkg.name === name);
+      if (!row) throw new Error(`Unknown package in --bump-package: ${name}`);
+      if (!wanted.has(row.pkg.name))
+        throw new Error(`Package bump requires selecting ${name} (or --all)`);
+      if (overrides.has(row.pkg.name)) throw new Error(`Duplicate package bump: ${name}`);
+      overrides.set(row.pkg.name, value);
+    }
     const explicit = new Set(wanted);
     // Include runtime/peer workspace dependencies so new API never relies on an old npm release.
     let added = true;
@@ -221,7 +237,10 @@ await cli("release", async () => {
           continue;
         }
       }
-      const to = bumpVersion(pkg.version, explicit.has(row.pkg.name) ? bump : "patch");
+      const to = bumpVersion(
+        pkg.version,
+        overrides.get(row.pkg.name) ?? (explicit.has(row.pkg.name) ? bump : "patch"),
+      );
       if (versions.includes(to))
         throw new Error(`${row.short}@${to} already exists; reconcile local/npm versions`);
       entries.push({ short: row.short, name: row.pkg.name, from: pkg.version, to });

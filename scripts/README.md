@@ -114,3 +114,14 @@ cherry-pick/revert/bisect и ветка, отличная от main, блоки�
 Версия выпуска вычисляется только от локального `package.json`: например,
 `0.7.1 --bump patch` становится `0.7.2`, даже если npm содержит `3.0.1`.
 Занятая целевая версия вызывает ошибку, а не автоматический переход на другую ветку версий.
+
+Индивидуальное повышение версии в общем выпуске:
+
+```sh
+bun run release --all --bump-package voice=minor --dry-run
+bun run release --all --bump-package voice=minor
+```
+
+Повторяемый `--bump-package <short-name|npm-name>=patch|minor|major`
+переопределяет общий bump только для выбранного пакета. `--resume` использует
+сохранённые версии и не принимает новые bump-параметры.

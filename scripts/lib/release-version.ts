@@ -14,3 +14,9 @@ export function bumpVersion(version: string, bump: Bump): string {
   if (!result.every(Number.isSafeInteger)) throw new Error("Version overflow");
   return result.join(".");
 }
+
+export function parsePackageBump(value: string | undefined): [string, Bump] {
+  const match = /^([^=]+)=(patch|minor|major)$/.exec(value ?? "");
+  if (!match) throw new Error("--bump-package requires <package>=patch|minor|major");
+  return [match[1]!, match[2] as Bump];
+}
