@@ -90,9 +90,9 @@
     "version": "3.0.0"
   },
   {
-    "name": "@hyperttp/sender-rest",
-    "directory": "sender-rest",
-    "source": "hyperttp-sender-rest",
+    "name": "@hyperttp/protocol-rest",
+    "directory": "protocol-rest",
+    "source": "hyperttp-protocol-rest",
     "version": "0.1.0"
   },
   {

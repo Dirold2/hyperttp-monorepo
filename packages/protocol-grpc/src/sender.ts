@@ -80,7 +80,7 @@ export class GrpcSender implements HyperSender<
       headers: {
         "content-type": "application/grpc",
         te: "trailers",
-        ...(metadata?.headers ?? {}),
+        ...metadata?.headers,
       },
       body: framedBody,
       signal,

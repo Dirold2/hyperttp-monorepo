@@ -3,8 +3,8 @@
 ## Текущая модель: независимые Git-репозитории
 
 `packages/*` — Bun workspaces; 20 пакетов подключены как Git submodules.
-`protocol-grpc` и `sender-rest` пока остаются обычными каталогами: указанные
-репозитории GitHub недоступны (Repository not found). Они по-прежнему участвуют
+`protocol-grpc` и новый `protocol-rest` пока остаются обычными каталогами,
+пока не завершено подключение их отдельных репозиториев. Они участвуют
 в сборке/проверках. Список пакетов читается с диска, не из migration.json.
 
 ```sh
@@ -138,7 +138,7 @@ deno run --no-config --no-lock --node-modules-dir=manual --allow-read --allow-wr
 `inflight`, `interceptors`, `metrics`, `parser`, `queue`, `ratelimit`, `retry`, `serializer`.
 
 Дополнительные пакеты сохранены, но не включены в основной CI до завершения их миграции:
-`adapter-axios`, `protocol-grpc`, `protocol-webrtc`, `sender-rest`, `transport-bun`,
+`adapter-axios`, `protocol-grpc`, `protocol-webrtc`, `protocol-rest`, `transport-bun`,
 `transport-undici`, `transport-webrtc`, `voice`.
 
 ```sh

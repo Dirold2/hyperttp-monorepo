@@ -20,6 +20,7 @@
         "hyperttp": "workspace:^",
       },
       "devDependencies": {
+        "@hyperttp/protocol-rest": "workspace:^",
         "@types/node": "^26.6.6",
         "@vitest/coverage-v8": "^5.1.0",
         "chalk": "^6.0.1",
@@ -76,6 +77,7 @@
       "name": "@hyperttp/core",
       "version": "3.0.2",
       "devDependencies": {
+        "@hyperttp/protocol-rest": "workspace:^",
         "@hyperttp/types": "workspace:^",
         "@types/node": "^26.6.6",
         "@vitest/coverage-v8": "^5.1.0",
@@ -118,6 +120,7 @@
         "@hyperttp/interceptors": "workspace:^",
         "@hyperttp/metrics": "workspace:^",
         "@hyperttp/parser": "workspace:^",
+        "@hyperttp/protocol-rest": "workspace:^",
         "@hyperttp/queue": "workspace:^",
         "@hyperttp/ratelimit": "workspace:^",
         "@hyperttp/retry": "workspace:^",
@@ -231,6 +234,23 @@
         "typescript": "^7.0.2",
       },
     },
+    "packages/protocol-rest": {
+      "name": "@hyperttp/protocol-rest",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.4",
+        "@types/node": "^26.6.6",
+        "@vitest/coverage-v8": "^5.1.0",
+        "esbuild": "^0.28.2",
+        "oxfmt": "^0.76.0",
+        "oxlint": "^1.90.0",
+        "typescript": "^7.0.2",
+        "vitest": "^5.1.0",
+      },
+      "peerDependencies": {
+        "@hyperttp/types": "workspace:^",
+      },
+    },
     "packages/protocol-webrtc": {
       "name": "@hyperttp/protocol-webrtc",
       "version": "0.2.0",
@@ -294,19 +314,6 @@
       },
       "peerDependencies": {
         "@hyperttp/types": "workspace:^",
-      },
-    },
-    "packages/sender-rest": {
-      "name": "@hyperttp/sender-rest",
-      "version": "0.1.0",
-      "devDependencies": {
-        "@types/bun": "^1.4.4",
-        "@types/node": "^26.6.6",
-        "esbuild": "^0.28.2",
-      },
-      "peerDependencies": {
-        "@hyperttp/types": "workspace:^",
-        "typescript": "^7.0.2",
       },
     },
     "packages/serializer": {
@@ -528,6 +535,8 @@
 
     "@hyperttp/protocol-grpc": ["@hyperttp/protocol-grpc@workspace:packages/protocol-grpc"],
 
+    "@hyperttp/protocol-rest": ["@hyperttp/protocol-rest@workspace:packages/protocol-rest"],
+
     "@hyperttp/protocol-webrtc": ["@hyperttp/protocol-webrtc@workspace:packages/protocol-webrtc"],
 
     "@hyperttp/queue": ["@hyperttp/queue@workspace:packages/queue"],
@@ -535,8 +544,6 @@
     "@hyperttp/ratelimit": ["@hyperttp/ratelimit@workspace:packages/ratelimit"],
 
     "@hyperttp/retry": ["@hyperttp/retry@workspace:packages/retry"],
-
-    "@hyperttp/sender-rest": ["@hyperttp/sender-rest@workspace:packages/sender-rest"],
 
     "@hyperttp/serializer": ["@hyperttp/serializer@workspace:packages/serializer"],
 

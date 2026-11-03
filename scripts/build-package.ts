@@ -28,6 +28,7 @@ await cli("build", async () => {
       outbase: "dist",
       allowOverwrite: true,
       minify: true,
+      keepNames: true,
       sourcemap: true,
       format: "esm",
     });
@@ -40,6 +41,7 @@ await cli("build", async () => {
       platform: "node",
       format: "cjs",
       minify: true,
+      keepNames: true,
       sourcemap: true,
     });
   }
