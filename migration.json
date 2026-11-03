@@ -1,0 +1,134 @@
+[
+  {
+    "name": "hyperttp",
+    "directory": "hyperttp",
+    "source": "hyperttp",
+    "version": "0.7.1"
+  },
+  {
+    "name": "@hyperttp/adapter-axios",
+    "directory": "adapter-axios",
+    "source": "hyperttp-adapter-axios",
+    "version": "0.1.0"
+  },
+  {
+    "name": "@hyperttp/auth",
+    "directory": "auth",
+    "source": "hyperttp-auth",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/cache",
+    "directory": "cache",
+    "source": "hyperttp-cache",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/core",
+    "directory": "core",
+    "source": "hyperttp-core",
+    "version": "3.0.2"
+  },
+  {
+    "name": "@hyperttp/crypto",
+    "directory": "crypto",
+    "source": "hyperttp-crypto",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/inflight",
+    "directory": "inflight",
+    "source": "hyperttp-inflight",
+    "version": "3.0.1"
+  },
+  {
+    "name": "@hyperttp/interceptors",
+    "directory": "interceptors",
+    "source": "hyperttp-interceptors",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/metrics",
+    "directory": "metrics",
+    "source": "hyperttp-metrics",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/parser",
+    "directory": "parser",
+    "source": "hyperttp-parser",
+    "version": "3.0.2"
+  },
+  {
+    "name": "@hyperttp/protocol-grpc",
+    "directory": "protocol-grpc",
+    "source": "hyperttp-protocol-grpc",
+    "version": "0.1.0"
+  },
+  {
+    "name": "@hyperttp/protocol-webrtc",
+    "directory": "protocol-webrtc",
+    "source": "hyperttp-protocol-webrtc",
+    "version": "0.1.1"
+  },
+  {
+    "name": "@hyperttp/queue",
+    "directory": "queue",
+    "source": "hyperttp-queue",
+    "version": "3.0.1"
+  },
+  {
+    "name": "@hyperttp/ratelimit",
+    "directory": "ratelimit",
+    "source": "hyperttp-ratelimit",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/retry",
+    "directory": "retry",
+    "source": "hyperttp-retry",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/sender-rest",
+    "directory": "sender-rest",
+    "source": "hyperttp-sender-rest",
+    "version": "0.1.0"
+  },
+  {
+    "name": "@hyperttp/serializer",
+    "directory": "serializer",
+    "source": "hyperttp-serializer",
+    "version": "3.0.0"
+  },
+  {
+    "name": "@hyperttp/transport-bun",
+    "directory": "transport-bun",
+    "source": "hyperttp-transport-bun",
+    "version": "0.4.0"
+  },
+  {
+    "name": "@hyperttp/transport-undici",
+    "directory": "transport-undici",
+    "source": "hyperttp-transport-undici",
+    "version": "0.4.0"
+  },
+  {
+    "name": "@hyperttp/transport-webrtc",
+    "directory": "transport-webrtc",
+    "source": "hyperttp-transport-webrtc",
+    "version": "0.1.1"
+  },
+  {
+    "name": "@hyperttp/types",
+    "directory": "types",
+    "source": "hyperttp-types",
+    "version": "0.5.0"
+  },
+  {
+    "name": "@hyperttp/voice",
+    "directory": "voice",
+    "source": "hyperttp-voice",
+    "version": "0.1.0"
+  }
+]

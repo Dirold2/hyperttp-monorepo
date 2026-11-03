@@ -1,0 +1,39 @@
+{
+  "name": "@hyperttp/sender-rest",
+  "version": "0.1.0",
+  "description": "HTTP",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "http"
+  ],
+  "author": "dirold2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IT-IF-OR/hyperttp-rest.git"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "esbuild": "^0.28.1"
+  },
+  "peerDependencies": {
+    "typescript": "^7",
+    "@hyperttp/types": "workspace:^"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'",
+    "typecheck": "tsc --noEmit"
+  }
+}

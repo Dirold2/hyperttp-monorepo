@@ -1,0 +1,63 @@
+# Node.js
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+bun.lock
+
+# PNPM store
+.pnp/
+.pnpm-store/
+pnpm-lock.yaml
+
+# Output directories
+dist/
+build/
+tests/.tmp/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+.env.ci
+.env.*
+
+# Vitest / test coverage
+coverage/
+.vitest/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# MacOS
+.DS_Store
+
+# Linux
+*~
+
+# Caches
+.eslintcache
+.cache/
+.turbo/
+
+# Windows
+Thumbs.db
+
+# Serena
+.serena

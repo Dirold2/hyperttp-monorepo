@@ -1,0 +1,70 @@
+{
+  "name": "@hyperttp/adapter-axios",
+  "version": "0.1.0",
+  "private": false,
+  "description": "",
+  "keywords": [
+    "events",
+    "in-memory",
+    "typescript"
+  ],
+  "homepage": "https://github.com/IT-IF-OR/hyperttp-adapter-axios#readme",
+  "bugs": {
+    "url": "https://github.com/IT-IF-OR/hyperttp-adapter-axios/issues"
+  },
+  "license": "MIT",
+  "author": "dirold2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IT-IF-OR/hyperttp-adapter-axios.git"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "!dist/**/*.map"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "lint": "oxlint src",
+    "lint:fix": "oxlint src --fix",
+    "format": "oxlint --fix . && oxfmt .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "node ../../scripts/build-package.mjs",
+    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "chalk": "^6.0.0",
+    "dotenv-cli": "^11.0.0",
+    "esbuild": "^0.28.2",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "peerDependencies": {
+    "@hyperttp/types": "workspace:^",
+    "axios": "^1.20.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "hyperttp": "workspace:^",
+    "@hyperttp/core": "workspace:^"
+  }
+}

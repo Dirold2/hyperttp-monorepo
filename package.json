@@ -1,0 +1,33 @@
+{
+  "name": "hyperttp-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "node scripts/workspaces.mjs build",
+    "typecheck": "node scripts/workspaces.mjs typecheck",
+    "lint": "node scripts/workspaces.mjs lint",
+    "format:check": "node scripts/workspaces.mjs format:check",
+    "test": "node scripts/workspaces.mjs test",
+    "check": "bun run build && bun run format:check && bun run lint && bun run typecheck && bun run test",
+    "check:all": "node scripts/workspaces.mjs build --all && node scripts/workspaces.mjs typecheck --all && node scripts/workspaces.mjs test --all",
+    "smoke:node": "bun run --cwd packages/hyperttp smoke:node",
+    "smoke:bun": "bun run --cwd packages/hyperttp smoke:bun",
+    "smoke:deno": "bun run --cwd packages/hyperttp smoke:deno",
+    "smoke:browser": "bun run --cwd packages/hyperttp smoke:browser",
+    "pack": "node scripts/pack.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "esbuild": "^0.28.2",
+    "oxlint": "^1.90.0",
+    "oxfmt": "^0.75.0",
+    "@types/node": "^26.6.6"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@hyperttp/ratelimit",
+  "version": "3.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "hyperttp"
+  ],
+  "author": "dirold2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IT-IF-OR/hyperttp-ratelimit.git"
+  },
+  "peerDependencies": {
+    "@hyperttp/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "typescript": "^7.0.2",
+    "vitest": "latest",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "esbuild": "^0.28.2"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint src --fix",
+    "format": "oxfmt src",
+    "format:check": "oxfmt src --check",
+    "test": "vitest run",
+    "dev": "tsx src/index.ts",
+    "build": "node ../../scripts/build-package.mjs",
+    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true });'"
+  }
+}
