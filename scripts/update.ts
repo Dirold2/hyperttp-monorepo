@@ -1,4 +1,4 @@
-import { cli, logStep, logWarn, runCommand, summaryBox } from "./format.ts";
+import { cli, logStep, logWarn, runCommand, summaryBox } from "./lib/format.ts";
 import { packages, root } from "./workspaces.ts";
 
 await cli("update", async () => {

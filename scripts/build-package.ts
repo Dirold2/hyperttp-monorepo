@@ -1,6 +1,6 @@
 import { readFile, readdir, rm } from "node:fs/promises";
 import { resolve, join } from "node:path";
-import { cli, logStep, logDetail, runCommand, summaryBox } from "./format.ts";
+import { cli, logStep, logDetail, runCommand, summaryBox } from "./lib/format.ts";
 import { build } from "esbuild";
 
 await cli("build", async () => {

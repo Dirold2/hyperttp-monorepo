@@ -1,4 +1,4 @@
-import { cli, logStep, logDetail, logWarn, logError, summaryBox } from "./format.ts";
+import { cli, logStep, logDetail, logWarn, logError, summaryBox } from "./lib/format.ts";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

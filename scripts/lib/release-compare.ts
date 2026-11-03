@@ -2,7 +2,7 @@ import { readdir, readFile, mkdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { capture, withArchive } from "./release.ts";
-import type { Workspace } from "./workspaces.ts";
+import type { Workspace } from "../workspaces.ts";
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);

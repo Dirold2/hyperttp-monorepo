@@ -3,7 +3,7 @@ import { lstat, mkdtemp, readFile, readdir, realpath, rm } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cli, logDetail, logStep, logWarn, summaryBox } from "./format.ts";
+import { cli, logDetail, logStep, logWarn, summaryBox } from "./lib/format.ts";
 import { root } from "./workspaces.ts";
 
 type Package = { name: string; version?: string; repository?: string | { url?: string } };

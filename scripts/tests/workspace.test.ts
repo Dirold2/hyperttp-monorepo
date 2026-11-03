@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { add, discover, ownsGitRoot, repositoryUrl, scan, status } from "./workspace.ts";
+import { add, discover, ownsGitRoot, repositoryUrl, scan, status } from "../workspace.ts";
 
 function git(dir: string, args: string[]) {
   const result = spawnSync("git", ["--no-pager", ...args], {

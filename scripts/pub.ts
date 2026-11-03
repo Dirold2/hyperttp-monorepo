@@ -1,13 +1,13 @@
 import {
   publishedVersion as registryPublishedVersion,
   waitForPublication,
-} from "./npm-registry.ts";
-import { listStage, verifyStage } from "./npm-stage.ts";
+} from "./lib/npm-registry.ts";
+import { listStage, verifyStage } from "./lib/npm-stage.ts";
 import { readFile, writeFile, mkdir, access, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { cli, logStep, logDetail, logWarn, summaryBox } from "./format.ts";
-import { capture, releaseTargets, withArchive } from "./release.ts";
+import { cli, logStep, logDetail, logWarn, summaryBox } from "./lib/format.ts";
+import { capture, releaseTargets, withArchive } from "./lib/release.ts";
 import { root } from "./workspaces.ts";
 
 class PendingPublication extends Error {}

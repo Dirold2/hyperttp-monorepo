@@ -1,8 +1,8 @@
 import { cp, readdir, rm, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cli, logStep, logDetail, summaryBox } from "./format.ts";
-import { capture, releaseTargets, withArchive, prepareDist } from "./release.ts";
+import { cli, logStep, logDetail, summaryBox } from "./lib/format.ts";
+import { capture, releaseTargets, withArchive, prepareDist } from "./lib/release.ts";
 
 await cli("dist → __dist__", async () => {
   const args = process.argv.slice(2);

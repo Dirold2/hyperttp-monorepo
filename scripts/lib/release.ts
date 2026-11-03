@@ -2,7 +2,7 @@ import { mkdtemp, rm, readdir, readFile, writeFile, cp, rename } from "node:fs/p
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { packages, ordered, root, type Workspace } from "./workspaces.ts";
+import { packages, ordered, root, type Workspace } from "../workspaces.ts";
 import { logStep, logDetail } from "./format.ts";
 
 export function capture(command: string, args: string[], cwd = root) {

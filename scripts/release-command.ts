@@ -4,10 +4,10 @@ import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { packages, ordered, root } from "./workspaces.ts";
-import { capture } from "./release.ts";
-import { differsFromNpm } from "./release-compare.ts";
-import { bumpVersion, type Bump } from "./release-version.ts";
-import { cli, logStep, logDetail, summaryBox, runCommand } from "./format.ts";
+import { capture } from "./lib/release.ts";
+import { differsFromNpm } from "./lib/release-compare.ts";
+import { bumpVersion, type Bump } from "./lib/release-version.ts";
+import { cli, logStep, logDetail, summaryBox, runCommand } from "./lib/format.ts";
 
 type Entry = { short: string; name: string; from: string; to: string };
 type Plan = {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bumpVersion } from "./release-version.ts";
+import { bumpVersion } from "../lib/release-version.ts";
 
 for (const [from, bump, to] of [
   ["0.1.1", "patch", "0.1.2"],

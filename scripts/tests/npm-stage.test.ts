@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { selectStage, verifyStage } from "./npm-stage.ts";
+import { selectStage, verifyStage } from "../lib/npm-stage.ts";
 const stage = {
   id: "12345678-1234-1234-1234-123456789abc",
   packageName: "@test/pkg",

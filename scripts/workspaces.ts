@@ -1,7 +1,7 @@
 import { readFile, readdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { cli, logStep, runCommand, summaryBox } from "./format.ts";
+import { cli, logStep, runCommand, summaryBox } from "./lib/format.ts";
 
 export const root = fileURLToPath(new URL("../", import.meta.url));
 export interface Workspace {

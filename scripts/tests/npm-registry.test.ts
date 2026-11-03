@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { containsVersion, waitForPublication } from "./npm-registry.ts";
+import { containsVersion, waitForPublication } from "../lib/npm-registry.ts";
 
 for (const response of [
   "0.5.1",

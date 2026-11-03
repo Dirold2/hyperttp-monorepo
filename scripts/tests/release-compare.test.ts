@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { packageDigest } from "./release-compare.ts";
+import { packageDigest } from "../lib/release-compare.ts";
 
 test("ignores version/tooling/maps but detects public declarations", async () => {
   const dir = await mkdtemp(join(tmpdir(), "release-compare-test-"));
