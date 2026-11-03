@@ -230,11 +230,13 @@ await cli("release", async () => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
       if (
-        (
-          await rl.question("Пройти проверки, повысить версии и опубликовать GitHub/npm? [y/N]: ")
-        ).trim() !== "y"
-      )
-        return;
+        (await rl.question("Пройти проверки, повысить версии и опубликовать GitHub/npm? [y/N]: "))
+          .trim()
+          .toLowerCase() !== "y"
+      ) {
+        logDetail("Отменено: версии не изменены, публикация не запускалась.");
+        return false;
+      }
     } finally {
       rl.close();
     }

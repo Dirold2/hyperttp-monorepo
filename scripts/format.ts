@@ -43,12 +43,12 @@ export function runCommand(command: string, args: string[], cwd: string, timeout
     );
   }
 }
-export async function cli(command: string, task: () => Promise<void>) {
+export async function cli(command: string, task: () => Promise<void | false>) {
   const start = Date.now();
   logHeader(command);
   try {
-    await task();
-    logSuccess("Готово", Date.now() - start);
+    const result = await task();
+    if (result !== false) logSuccess("Готово", Date.now() - start);
   } catch (error) {
     logError(error instanceof Error ? error.message : String(error));
     logDetail(`Время: ${fmtDuration(Date.now() - start)}`);
