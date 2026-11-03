@@ -21,7 +21,9 @@
     "smoke:bun": "bun run --cwd packages/hyperttp smoke:bun",
     "smoke:deno": "bun run --cwd packages/hyperttp smoke:deno",
     "smoke:browser": "bun run --cwd packages/hyperttp smoke:browser",
-    "pack": "node scripts/pack.mjs"
+    "pack": "node scripts/pack.mjs",
+    "subtree:push": "node scripts/subtree.mjs",
+    "subtree:check": "node scripts/subtree.mjs --dry-run"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

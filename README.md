@@ -75,6 +75,81 @@ npm publish artifacts/hyperttp-core-<version>.tgz --access public --provenance -
 источник; публиковать их из нового репозитория с provenance нельзя.
 Старые workflows сохранены в `packages/*/legacy-github/` только для справки.
 
+## Разработка в монорепо и Git subtree
+
+Основной рабочий каталог — этот монорепозиторий: изменения пакетов делаются в
+`packages/` и коммитятся здесь. Отдельные репозитории можно использовать как зеркала
+исходников, без переключения между рабочими папками.
+
+Локально настроены SSH remotes для всех 22 пакетов: `hyperttp` указывает на
+`git@github.com:Dirold2/hyperttp.git`, остальные — на
+`git@github.com:IT-IF-OR/hyperttp-<имя-пакета>.git`.
+Имя remote совпадает с каталогом пакета (`core`, `types`, `protocol-grpc` и т. д.).
+Для каждого пакета создана локальная ветка `export/<имя-пакета>`.
+Remotes не переносятся при клонировании; на новом рабочем месте добавьте их
+по этой схеме. Например:
+
+```sh
+git remote add hyperttp git@github.com:Dirold2/hyperttp.git
+git remote add core git@github.com:IT-IF-OR/hyperttp-core.git
+git remote add protocol-grpc git@github.com:IT-IF-OR/hyperttp-protocol-grpc.git
+git remote add protocol-webrtc git@github.com:IT-IF-OR/hyperttp-protocol-webrtc.git
+git remote add transport-webrtc git@github.com:IT-IF-OR/hyperttp-transport-webrtc.git
+```
+
+Экспорт коммитов выбранного пакета (изменения сначала нужно закоммитить в монорепо):
+
+```sh
+git subtree split --prefix=packages/protocol-grpc -b export/protocol-grpc
+git subtree split --prefix=packages/protocol-webrtc -b export/protocol-webrtc
+git subtree split --prefix=packages/transport-webrtc -b export/transport-webrtc
+```
+
+При первом экспорте в существующие репозитории используйте отдельную ветку,
+чтобы не перезаписать их независимую историю:
+
+```sh
+git push protocol-grpc export/protocol-grpc:monorepo
+git push protocol-webrtc export/protocol-webrtc:monorepo
+git push transport-webrtc export/transport-webrtc:monorepo
+```
+
+Автоматическая отправка только изменившихся пакетов:
+
+```sh
+# Проверить все пакеты без отправки.
+bun run subtree:check
+# Отправить все изменившиеся пакеты в ветки monorepo.
+bun run subtree:push
+# Проверить или отправить только выбранные пакеты.
+bun run subtree:check core hyperttp
+bun run subtree:push core hyperttp
+```
+
+Скрипт сравнивает subtree-коммит и содержимое с удалённой веткой. Если изменений
+нет, выводит `[skip]` и не пушит. Используется снимок `HEAD`: незакоммиченные
+изменения не отправляются, о них выводится предупреждение. Нужны настроенные
+remotes и SSH-доступ к GitHub. `--dry-run` обращается к сети и может загружать
+Git-объекты, но не изменяет удалённые ветки. Ошибки отдельных пакетов не мешают
+проверке остальных; итоговый код возврата при ошибках — 1. Скрипт не публикует npm,
+не создаёт коммиты и отказывается перезаписывать расходящуюся историю.
+
+Последующие обновления этих веток вручную:
+
+```sh
+git subtree push --prefix=packages/protocol-grpc protocol-grpc monorepo
+git subtree push --prefix=packages/protocol-webrtc protocol-webrtc monorepo
+git subtree push --prefix=packages/transport-webrtc transport-webrtc monorepo
+```
+
+Не используйте `--force` для замены старой `main`. У первоначально экспортированных
+веток нет общей истории со старыми репозиториями; обычный PR между ними может быть
+недоступен. Переключение основной ветки на `monorepo` — отдельное решение.
+
+Subtree экспортирует только каталог пакета. Такие зеркала пока не автономны:
+`workspace:^` требует монорепо, а сборка использует `../../scripts/build-package.mjs`.
+Разрабатывать и проверять пакеты следует здесь.
+
 ## Известные ограничения миграции
 
 - `protocol-grpc`: сборка включает `vitest.config.ts` вне `rootDir: src` (TS6059).
