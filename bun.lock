@@ -14,7 +14,7 @@
     },
     "packages/adapter-axios": {
       "name": "@hyperttp/adapter-axios",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@hyperttp/core": "workspace:^",
         "hyperttp": "workspace:^",
@@ -38,7 +38,7 @@
     },
     "packages/auth": {
       "name": "@hyperttp/auth",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@hyperttp/types": "workspace:^",
@@ -56,7 +56,7 @@
     },
     "packages/cache": {
       "name": "@hyperttp/cache",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@hyperttp/types": "workspace:^",
@@ -75,7 +75,7 @@
     },
     "packages/core": {
       "name": "@hyperttp/core",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "devDependencies": {
         "@hyperttp/protocol-rest": "workspace:^",
         "@hyperttp/types": "workspace:^",
@@ -94,7 +94,7 @@
     },
     "packages/crypto": {
       "name": "@hyperttp/crypto",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -110,7 +110,7 @@
     },
     "packages/hyperttp": {
       "name": "hyperttp",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "dependencies": {
         "@hyperttp/auth": "workspace:^",
         "@hyperttp/cache": "workspace:^",
@@ -143,7 +143,7 @@
     },
     "packages/inflight": {
       "name": "@hyperttp/inflight",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "devDependencies": {
         "@hyperttp/types": "workspace:^",
         "@types/bun": "^1.4.4",
@@ -160,7 +160,7 @@
     },
     "packages/interceptors": {
       "name": "@hyperttp/interceptors",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -176,7 +176,7 @@
     },
     "packages/metrics": {
       "name": "@hyperttp/metrics",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -192,7 +192,7 @@
     },
     "packages/parser": {
       "name": "@hyperttp/parser",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -219,7 +219,7 @@
     },
     "packages/protocol-grpc": {
       "name": "@hyperttp/protocol-grpc",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -236,7 +236,7 @@
     },
     "packages/protocol-rest": {
       "name": "@hyperttp/protocol-rest",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -253,7 +253,7 @@
     },
     "packages/protocol-webrtc": {
       "name": "@hyperttp/protocol-webrtc",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -270,7 +270,7 @@
     },
     "packages/queue": {
       "name": "@hyperttp/queue",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -286,7 +286,7 @@
     },
     "packages/ratelimit": {
       "name": "@hyperttp/ratelimit",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -302,7 +302,7 @@
     },
     "packages/retry": {
       "name": "@hyperttp/retry",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -318,7 +318,7 @@
     },
     "packages/serializer": {
       "name": "@hyperttp/serializer",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -334,7 +334,7 @@
     },
     "packages/transport-bun": {
       "name": "@hyperttp/transport-bun",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -351,7 +351,7 @@
     },
     "packages/transport-undici": {
       "name": "@hyperttp/transport-undici",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
@@ -373,7 +373,7 @@
     },
     "packages/transport-webrtc": {
       "name": "@hyperttp/transport-webrtc",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "werift": "^0.26.0",
       },
@@ -392,7 +392,7 @@
     },
     "packages/types": {
       "name": "@hyperttp/types",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "devDependencies": {
         "@types/node": "^26.6.6",
         "oxfmt": "^0.76.0",
@@ -402,7 +402,7 @@
     },
     "packages/voice": {
       "name": "@hyperttp/voice",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@hyperttp/protocol-webrtc": "workspace:^",
         "@hyperttp/transport-webrtc": "workspace:^",

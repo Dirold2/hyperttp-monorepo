@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { capture } from "./release.ts";
 import { assertReleaseRepository, sourceSnapshot, copySource } from "./release-source.ts";
 import { packages } from "../workspaces.ts";
@@ -30,7 +30,12 @@ export function resolveWorkspaceVersions(
 }
 
 /** Builds a source release commit in isolation; local workspace ranges are untouched. */
-export async function sourceRelease(directory: string, version: string, dryRun = false) {
+export async function sourceRelease(
+  directory: string,
+  version: string,
+  dryRun = false,
+  verifyOnly = false,
+) {
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version))
     throw new Error(`Invalid version: ${version}`);
   await assertReleaseRepository(directory);
@@ -47,6 +52,21 @@ export async function sourceRelease(directory: string, version: string, dryRun =
   const resolved = resolveWorkspaceVersions(manifest, versions);
   const url = capture("git", ["remote", "get-url", "origin"], directory);
   const tag = `v${version}`;
+  const receiptFile = resolve(
+    directory,
+    capture("git", ["rev-parse", "--git-path", "hyperttp-source-release.json"], directory),
+  );
+  let previousCommit: string | undefined;
+  try {
+    const receipt = JSON.parse(await readFile(receiptFile, "utf8"));
+    if (receipt.url === url) previousCommit = receipt.commit;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const saveReceipt = async (commit: string) => {
+    await mkdir(dirname(receiptFile), { recursive: true });
+    await writeFile(receiptFile, JSON.stringify({ url, commit }) + "\n");
+  };
   if (dryRun) return { head, tag };
   const temp = await mkdtemp(join(tmpdir(), "hyperttp-source-release-"));
   try {
@@ -67,6 +87,7 @@ export async function sourceRelease(directory: string, version: string, dryRun =
         throw new Error(`Remote tag ${tag} has different contents; refusing replacement`);
       if ((await sourceSnapshot(directory)) !== snapshot)
         throw new Error("Source changed while preparing release");
+      if (!verifyOnly) await saveReceipt(capture("git", ["rev-parse", "FETCH_HEAD^{}"], repo));
       return { head, tag };
     }
     const main = capture("git", ["ls-remote", "origin", "refs/heads/main"], repo);
@@ -79,28 +100,65 @@ export async function sourceRelease(directory: string, version: string, dryRun =
         const match = /^(.*) <([^>]+)>/.exec(identity)!;
         // Refuse unrelated source history, rather than replacing an independent main.
         capture("git", ["merge-base", head, remoteHead], repo);
-        // A previous isolated release may be ahead only by its resolved manifest.
-        // Never merge an arbitrary remote source update by overwriting its tree.
-        const remoteOnly = capture("git", ["rev-list", `${head}..${remoteHead}`], repo);
-        if (remoteOnly) {
-          const changedSource = capture(
-            "git",
-            ["diff", head, remoteHead, "--", ".", ":(exclude)package.json"],
-            repo,
-          );
+        if (remoteHead !== previousCommit) {
+          const identityArgs = ["-c", `user.name=${match[1]}`, "-c", `user.email=${match[2]}`];
+          // Verify remote source edits are already incorporated in the intended snapshot.
+          // Normalize only package.json: release versions/resolved workspace ranges differ
+          // intentionally; all other manifest changes must still be accounted for.
           const remoteManifest = JSON.parse(
             capture("git", ["show", `${remoteHead}:package.json`], repo),
           );
-          const localManifest = JSON.parse(capture("git", ["show", `${head}:package.json`], repo));
           const normalize = (pkg: Record<string, any>) => {
             const value = resolveWorkspaceVersions(pkg, versions);
             delete value.version;
             return JSON.stringify(value);
           };
-          if (changedSource || normalize(remoteManifest) !== normalize(localManifest))
+          if (normalize(remoteManifest) !== normalize(resolved)) {
+            const baseManifest = JSON.parse(capture("git", ["show", `${head}:package.json`], repo));
+            if (normalize(remoteManifest) !== normalize(baseManifest))
+              throw new Error(
+                "Remote main contains source changes in package.json; reconcile it locally before release",
+              );
+          }
+          const intended = capture(
+            "git",
+            [...identityArgs, "commit-tree", tree, "-p", head, "-m", "release snapshot"],
+            repo,
+          );
+          // Replace the remote manifest in a temporary index/tree, not the source checkout.
+          capture("git", ["read-tree", remoteHead], repo);
+          capture("git", ["add", "package.json"], repo);
+          const remoteTree = capture("git", ["write-tree"], repo);
+          const normalizedRemote = capture(
+            "git",
+            [
+              ...identityArgs,
+              "commit-tree",
+              remoteTree,
+              "-p",
+              remoteHead,
+              "-m",
+              "normalized remote manifest",
+            ],
+            repo,
+          );
+          let mergedTree: string;
+          try {
+            mergedTree = capture(
+              "git",
+              ["merge-tree", "--write-tree", intended, normalizedRemote],
+              repo,
+            ).split("\n")[0]!;
+          } catch {
             throw new Error(
-              "Remote main contains source changes; reconcile it locally before release",
+              "Remote main contains source changes conflicting with the release snapshot; reconcile it locally before release",
             );
+          }
+          if (mergedTree !== tree)
+            throw new Error(
+              "Remote main contains source changes absent from the release snapshot; reconcile it locally before release",
+            );
+          capture("git", ["read-tree", tree], repo);
         }
 
         const commit = capture(
@@ -164,11 +222,13 @@ export async function sourceRelease(directory: string, version: string, dryRun =
       (await sourceSnapshot(directory)) !== snapshot
     )
       throw new Error("Source changed while preparing release");
+    if (verifyOnly) return { head, tag };
     capture(
       "git",
       ["push", "--atomic", "origin", "HEAD:refs/heads/main", `${tagRef}:${tagRef}`],
       repo,
     );
+    await saveReceipt(capture("git", ["rev-parse", "HEAD"], repo));
     return { head, tag };
   } finally {
     await rm(temp, { recursive: true, force: true });

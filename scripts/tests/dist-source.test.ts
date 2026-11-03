@@ -135,3 +135,25 @@ test("preflight aggregates all ordinary package directories without modifying th
     await assertReleaseRepositories([{ short: "valid", dir: repo }]);
   });
 });
+
+test("allows successive dirty-source releases without advancing local HEAD", async () => {
+  await fixture(async (repo, remote) => {
+    const head = capture("git", ["rev-parse", "HEAD"], repo);
+    await writeFile(join(repo, "new.ts"), "export const value = 1;\n");
+    await writeFile(
+      join(repo, "package.json"),
+      JSON.stringify({ name: "test", version: "1.0.1", scripts: { test: "test" } }),
+    );
+    await sourceRelease(repo, "1.0.1");
+    const previous = capture("git", ["rev-parse", "main"], remote);
+    await writeFile(join(repo, "new.ts"), "export const value = 2;\n");
+    await writeFile(
+      join(repo, "package.json"),
+      JSON.stringify({ name: "test", version: "1.0.2", scripts: { test: "test" } }),
+    );
+    await sourceRelease(repo, "1.0.2");
+    assert.equal(capture("git", ["rev-parse", "HEAD"], repo), head);
+    assert.equal(capture("git", ["show", "main:new.ts"], remote), "export const value = 2;");
+    assert.equal(capture("git", ["merge-base", previous, "main"], remote), previous);
+  });
+});
