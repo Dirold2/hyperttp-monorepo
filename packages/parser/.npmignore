@@ -1,6 +1,0 @@
-# .npmignore
-.git
-.github
-scripts
-tsconfig.json
-*.tsbuildinfo

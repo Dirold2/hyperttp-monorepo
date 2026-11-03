@@ -1,3 +1,69 @@
+# Hyperttp workspace (multi-repository)
+
+## Текущая модель: независимые Git-репозитории
+
+`packages/*` — Bun workspaces; 20 пакетов подключены как Git submodules.
+`protocol-grpc` и `sender-rest` пока остаются обычными каталогами: указанные
+репозитории GitHub недоступны (Repository not found). Они по-прежнему участвуют
+в сборке/проверках. Список пакетов читается с диска, не из migration.json.
+
+```sh
+bun run workspace:scan
+bun run workspace:status
+bun run workspace:status --online
+bun run workspace:add git@github.com:IT-IF-OR/hyperttp-new.git
+```
+
+add сначала проверяет временный clone, имя и уникальность пакета. Существующие
+папки не перезаписывает. scan только показывает неподключённые каталоги и URL из
+package.json; произвольная папка не отправляется на GitHub автоматически.
+Онлайн status проверяет npm и __dist__; ошибки сети означают unknown. Git ahead/
+behind опирается на локальные tracking refs, актуализируйте их через git fetch.
+
+### Завершение первоначальной миграции
+
+Исходники сохранены поверх истории каждого origin/main **без коммитов и push**.
+Поэтому dirty у пакетов ожидаем: сравните, закоммитьте и отправьте каждый пакет.
+Не выполняйте reset --hard / submodule update до сохранения этих изменений.
+Например:
+
+```sh
+git -C packages/core status --short
+git -C packages/core diff
+git -C packages/core add .
+git -C packages/core commit -m "Integrate workspace changes"
+git -C packages/core push origin main
+# Повторить для остальных пакетов, затем сохранить указатели в корне.
+git add .gitmodules packages scripts package.json README.md bun.lock
+git commit -m "Migrate packages to independent submodules"
+git push
+```
+
+Корневая миграция уже подготовлена в index: старые файлы заменены gitlinks.
+Это не удаление исходников на диске. Перед корневым коммитом обязательно сохраните
+и отправьте новые коммиты пакетов, иначе clone получит старые файлы origin/main.
+Резервная копия до миграции находится локально в
+`.git/workspace-migration-backup/` (parent.bundle, packages.tgz, working.patch).
+Она не отправляется на GitHub.
+
+```sh
+# Новое рабочее место после завершения миграции:
+git clone --recurse-submodules git@github.com:Dirold2/hyperttp-monorepo.git
+bun install --frozen-lockfile --ignore-scripts
+```
+
+Сборка пакетов пока использует общий ../../scripts/build-package.ts: пакеты
+предназначены для разработки внутри workspace, их автономный build ещё требует
+выделения общей tooling-зависимости. workspace:^ сохраняется; упаковка Bun
+преобразует его в версии npm. dist использует origin соответствующего пакета.
+release проверяет также HEAD/изменения вложенных репозиториев; старые pending-планы
+из монорепо нельзя продолжать после миграции без отдельной проверки снимков.
+Subtree-команда заблокирована для submodule workspace: исходники отправляются
+обычным Git из каталога пакета. Legacy subtree-инструкции ниже относятся к старой
+модели и больше не являются рабочим порядком.
+
+---
+
 # Hyperttp monorepo
 
 Bun workspaces для 22 пакетов Hyperttp. Имена npm-пакетов и независимые версии сохранены.

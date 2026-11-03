@@ -12,6 +12,11 @@ if (args.includes("--help")) {
   process.exit(0);
 }
 await cli("subtree", async () => {
+  const submodules = git(["ls-files", "--stage", "packages"]).output;
+  if (/^160000 /m.test(submodules))
+    throw new Error(
+      "Subtree export is disabled in submodule workspace mode. Commit and push inside packages/<name> instead.",
+    );
   const dryRun = args.includes("--dry-run");
   const requested = args.filter((arg) => arg !== "--dry-run");
   const rows: { directory: string; name: string }[] = JSON.parse(

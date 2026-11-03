@@ -11,7 +11,10 @@ await cli("dist → __dist__", async () => {
   let changed = 0,
     skipped = 0;
   for (const row of targets) {
-    const url = capture("git", ["remote", "get-url", row.short]);
+    const own = capture("git", ["rev-parse", "--show-toplevel"], row.dir) === row.dir;
+    const url = own
+      ? capture("git", ["remote", "get-url", "origin"], row.dir)
+      : capture("git", ["remote", "get-url", row.short]);
     await withArchive(row, async (archive, temp) => {
       const output = await prepareDist(archive, temp);
       // An isolated clone leaves the source checkout, index and branches untouched.

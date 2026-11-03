@@ -59,10 +59,23 @@ await cli("release", async () => {
     await mkdir(stateDir, { recursive: true });
     await writeFile(stateFile, JSON.stringify(plan, null, 2) + "\n");
   };
+  const packageSnapshot = () =>
+    rows.map((row) => {
+      const own = capture("git", ["rev-parse", "--show-toplevel"], row.dir) === row.dir;
+      return own
+        ? [
+            row.short,
+            capture("git", ["rev-parse", "HEAD"], row.dir),
+            capture("git", ["diff", "--binary", "HEAD"], row.dir),
+            capture("git", ["ls-files", "--others", "--exclude-standard"], row.dir),
+          ]
+        : [row.short];
+    });
   const fingerprint = (sourceHead = head) =>
     createHash("sha256")
       .update(sourceHead)
       .update(capture("git", ["diff", "--binary", sourceHead, "--", "."]))
+      .update(JSON.stringify(packageSnapshot()))
       .digest("hex");
   const checks = () => {
     for (const task of ["build", "typecheck", "lint", "format:check", "test"]) {
@@ -72,16 +85,30 @@ await cli("release", async () => {
   };
   const sourceHash = async (short: string) => {
     const hash = createHash("sha256");
-    const files = capture("git", ["ls-files", "--", `packages/${short}`, "scripts", "package.json"])
+    const row = rows.find((row) => row.short === short)!;
+    const own = capture("git", ["rev-parse", "--show-toplevel"], row.dir) === row.dir;
+    const base = own ? row.dir : root;
+    const files = capture(
+      "git",
+      own ? ["ls-files", "--", "."] : ["ls-files", "--", `packages/${short}`],
+      base,
+    )
       .split("\n")
       .filter(Boolean);
     for (const file of files) {
       hash.update(file);
-      if (file === `packages/${short}/package.json`) {
-        const pkg = JSON.parse(await readFile(join(root, file), "utf8"));
+      const path = join(base, file);
+      if (path === join(row.dir, "package.json")) {
+        const pkg = JSON.parse(await readFile(path, "utf8"));
         delete pkg.version;
         hash.update(JSON.stringify(pkg));
-      } else hash.update(await readFile(join(root, file)));
+      } else hash.update(await readFile(path));
+    }
+    for (const file of capture("git", ["ls-files", "--", "scripts", "package.json"])
+      .split("\n")
+      .filter(Boolean)) {
+      hash.update(file);
+      hash.update(await readFile(join(root, file)));
     }
     return hash.digest("hex");
   };
@@ -225,6 +252,13 @@ await cli("release", async () => {
       "Повышение:": bump,
     });
     return;
+  }
+  for (const row of rows) {
+    if (capture("git", ["rev-parse", "--show-toplevel"], row.dir) !== row.dir) continue;
+    if (capture("git", ["ls-files", "--others", "--exclude-standard"], row.dir))
+      throw new Error(`Commit untracked files in ${row.short} before release`);
+    if (plan.phase === "planned" && capture("git", ["status", "--porcelain"], row.dir))
+      throw new Error(`Commit package changes in ${row.short} before release`);
   }
   if (capture("git", ["ls-files", "--others", "--exclude-standard"]))
     throw new Error("Commit untracked files before release");

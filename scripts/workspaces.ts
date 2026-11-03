@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { cli, logStep, runCommand, summaryBox } from "./format.ts";
@@ -20,8 +20,19 @@ export async function packages(): Promise<Workspace[]> {
   for (const entry of await readdir(join(root, "packages"), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(root, "packages", entry.name);
+    try {
+      await access(join(dir, "package.json"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
     const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8"));
     rows.push({ dir, short: entry.name, pkg });
+  }
+  const names = new Set<string>();
+  for (const row of rows) {
+    if (names.has(row.pkg.name)) throw new Error(`Duplicate workspace name: ${row.pkg.name}`);
+    names.add(row.pkg.name);
   }
   return rows;
 }

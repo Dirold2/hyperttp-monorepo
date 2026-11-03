@@ -366,7 +366,7 @@
     },
     "packages/transport-webrtc": {
       "name": "@hyperttp/transport-webrtc",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "werift": "^0.26.0",
       },

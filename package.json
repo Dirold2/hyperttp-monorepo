@@ -10,6 +10,10 @@
     "node": ">=22.19.0"
   },
   "scripts": {
+    "workspace:add": "node scripts/workspace.ts add",
+    "workspace:scan": "node scripts/workspace.ts scan",
+    "workspace:status": "node scripts/workspace.ts status",
+    "workspace:test": "node --test scripts/workspace.test.ts",
     "tui": "node scripts/tui.ts",
     "update": "node scripts/update.ts",
     "build": "node scripts/workspaces.ts build",

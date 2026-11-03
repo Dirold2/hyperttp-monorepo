@@ -1,0 +1,80 @@
+[submodule "packages/adapter-axios"]
+	path = packages/adapter-axios
+	url = git@github.com:IT-IF-OR/hyperttp-adapter-axios.git
+	branch = main
+[submodule "packages/auth"]
+	path = packages/auth
+	url = git@github.com:IT-IF-OR/hyperttp-auth.git
+	branch = main
+[submodule "packages/cache"]
+	path = packages/cache
+	url = git@github.com:IT-IF-OR/hyperttp-cache.git
+	branch = main
+[submodule "packages/core"]
+	path = packages/core
+	url = git@github.com:IT-IF-OR/hyperttp-core.git
+	branch = main
+[submodule "packages/crypto"]
+	path = packages/crypto
+	url = git@github.com:IT-IF-OR/hyperttp-crypto.git
+	branch = main
+[submodule "packages/inflight"]
+	path = packages/inflight
+	url = git@github.com:IT-IF-OR/hyperttp-inflight.git
+	branch = main
+[submodule "packages/interceptors"]
+	path = packages/interceptors
+	url = git@github.com:IT-IF-OR/hyperttp-interceptors.git
+	branch = main
+[submodule "packages/hyperttp"]
+	path = packages/hyperttp
+	url = git@github.com:Dirold2/hyperttp.git
+	branch = main
+[submodule "packages/metrics"]
+	path = packages/metrics
+	url = git@github.com:IT-IF-OR/hyperttp-metrics.git
+	branch = main
+[submodule "packages/protocol-webrtc"]
+	path = packages/protocol-webrtc
+	url = git@github.com:IT-IF-OR/hyperttp-protocol-webrtc.git
+	branch = main
+[submodule "packages/parser"]
+	path = packages/parser
+	url = git@github.com:IT-IF-OR/hyperttp-parser.git
+	branch = main
+[submodule "packages/queue"]
+	path = packages/queue
+	url = git@github.com:IT-IF-OR/hyperttp-queue.git
+	branch = main
+[submodule "packages/ratelimit"]
+	path = packages/ratelimit
+	url = git@github.com:IT-IF-OR/hyperttp-ratelimit.git
+	branch = main
+[submodule "packages/retry"]
+	path = packages/retry
+	url = git@github.com:IT-IF-OR/hyperttp-retry.git
+	branch = main
+[submodule "packages/serializer"]
+	path = packages/serializer
+	url = git@github.com:IT-IF-OR/hyperttp-serializer.git
+	branch = main
+[submodule "packages/transport-bun"]
+	path = packages/transport-bun
+	url = git@github.com:IT-IF-OR/hyperttp-transport-bun.git
+	branch = main
+[submodule "packages/transport-undici"]
+	path = packages/transport-undici
+	url = git@github.com:IT-IF-OR/hyperttp-transport-undici.git
+	branch = main
+[submodule "packages/transport-webrtc"]
+	path = packages/transport-webrtc
+	url = git@github.com:IT-IF-OR/hyperttp-transport-webrtc.git
+	branch = main
+[submodule "packages/voice"]
+	path = packages/voice
+	url = git@github.com:IT-IF-OR/hyperttp-voice.git
+	branch = main
+[submodule "packages/types"]
+	path = packages/types
+	url = git@github.com:IT-IF-OR/hyperttp-types.git
+	branch = main
