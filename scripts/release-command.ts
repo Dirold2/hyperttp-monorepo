@@ -1,3 +1,8 @@
+import {
+  assertReleaseRepository,
+  assertReleaseRepositories,
+  sourceSnapshot,
+} from "./lib/release-source.ts";
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -19,13 +24,14 @@ type Plan = {
   dist: string[];
   pub: string[];
   sources?: Record<string, string>;
+  snapshots?: Record<string, string>;
 };
 
 await cli("release", async () => {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
     logDetail(
-      "release <packages | --all> [--bump patch|minor|major] [--dry-run] [--yes]\nrelease --resume [--yes]\nAll workspace checks must pass. No auto-commit or force push.",
+      "release <packages | --all> [--bump patch|minor|major] [--dry-run] [--yes]\nrelease --resume [--yes]\nSelected packages and dependencies are checked. Source commits are created in isolation; no force push.",
     );
     return;
   }
@@ -77,41 +83,42 @@ await cli("release", async () => {
       .update(capture("git", ["diff", "--binary", sourceHead, "--", "."]))
       .update(JSON.stringify(packageSnapshot()))
       .digest("hex");
-  const checks = () => {
-    for (const task of ["build", "typecheck", "lint", "format:check", "test"]) {
-      logStep(`Все workspaces: ${task}`);
-      runCommand("bun", ["run", "scripts/workspaces.ts", task, "--all"], root, 30 * 60_000);
+  const checks = (tasks = ["build", "typecheck", "lint", "format:check", "test"]) => {
+    const selected = rows.filter((row) => checkedNames.has(row.pkg.name)).map((row) => row.short);
+    for (const task of tasks) {
+      logStep(`Выбранные пакеты и зависимости: ${task}`);
+      runCommand("bun", ["run", "scripts/workspaces.ts", task, ...selected], root, 30 * 60_000);
     }
   };
   const sourceHash = async (short: string) => {
-    const hash = createHash("sha256");
     const row = rows.find((row) => row.short === short)!;
-    const own = capture("git", ["rev-parse", "--show-toplevel"], row.dir) === row.dir;
-    const base = own ? row.dir : root;
-    const files = capture(
-      "git",
-      own ? ["ls-files", "--", "."] : ["ls-files", "--", `packages/${short}`],
-      base,
-    )
-      .split("\n")
-      .filter(Boolean);
-    for (const file of files) {
-      hash.update(file);
-      const path = join(base, file);
-      if (path === join(row.dir, "package.json")) {
-        const pkg = JSON.parse(await readFile(path, "utf8"));
-        delete pkg.version;
-        hash.update(JSON.stringify(pkg));
-      } else hash.update(await readFile(path));
-    }
-    for (const file of capture("git", ["ls-files", "--", "scripts", "package.json"])
-      .split("\n")
-      .filter(Boolean)) {
-      hash.update(file);
-      hash.update(await readFile(join(root, file)));
-    }
-    return hash.digest("hex");
+    return sourceSnapshot(row.dir, true);
   };
+  const releaseSnapshots = async (ignoreVersion = false) =>
+    Object.fromEntries(
+      await Promise.all(
+        rows
+          .filter((row) => checkedNames.has(row.pkg.name))
+          .map(async (row) => [
+            row.short,
+            createHash("sha256")
+              .update(capture("git", ["rev-parse", "HEAD"], row.dir))
+              .update(capture("git", ["remote", "get-url", "origin"], row.dir))
+              .update(await sourceSnapshot(row.dir, ignoreVersion))
+              .digest("hex"),
+          ]),
+      ),
+    );
+  const assertSnapshots = async (expected: Record<string, string>) => {
+    for (const row of rows.filter((row) => checkedNames.has(row.pkg.name)))
+      await assertReleaseRepository(row.dir);
+    const current = await releaseSnapshots();
+    if (JSON.stringify(current) !== JSON.stringify(expected))
+      throw new Error(
+        "Release sources changed since validation; refusing to publish a different snapshot",
+      );
+  };
+  const checkedNames = new Set<string>();
   let saved: Plan | undefined;
   try {
     saved = JSON.parse(await readFile(stateFile, "utf8"));
@@ -127,7 +134,7 @@ await cli("release", async () => {
       throw new Error(
         "Version update was interrupted. Inspect package.json/bun.lock and the saved plan before proceeding; publication has not started.",
       );
-    if (plan.head !== head) {
+    if (!plan.snapshots && plan.head !== head) {
       if (
         plan.phase !== "versioned" ||
         !plan.fingerprint ||
@@ -170,6 +177,7 @@ await cli("release", async () => {
       }
     }
     const selected = rows.filter((row) => wanted.has(row.pkg.name));
+    await assertReleaseRepositories(selected);
     const entries: Entry[] = [];
     for (const row of selected) {
       if (
@@ -201,46 +209,22 @@ await cli("release", async () => {
         versions = [];
       }
       const pkg = await manifest(row.short);
-      const latest = versions
-        .filter((v) => /^\d+\.\d+\.\d+$/.test(v))
-        .sort((a, b) => {
-          const x = a.split(".").map(Number),
-            y = b.split(".").map(Number);
-          return x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]!;
-        })
-        .at(-1);
+      // Compare the local release line, never an unrelated higher npm major.
+      const publishedBase = versions.includes(pkg.version) ? pkg.version : undefined;
       const dependencyChanged = entries.some((entry) =>
         Object.hasOwn({ ...row.pkg.dependencies, ...row.pkg.peerDependencies }, entry.name),
       );
-      if (latest && !dependencyChanged) {
-        logStep(`${row.pkg.name}: сравнение с npm@${latest}…`);
-        if (!(await differsFromNpm(row, latest))) {
+      if (publishedBase && !dependencyChanged) {
+        logStep(`${row.pkg.name}: сравнение с npm@${publishedBase}…`);
+        if (!(await differsFromNpm(row, publishedBase))) {
           logDetail(`[skip] ${row.short}: содержимое совпадает с опубликованным пакетом`);
           continue;
         }
       }
-      const localParts = String(pkg.version).split(".").map(Number);
-      const remoteParts = latest?.split(".").map(Number);
-      const remoteNewer =
-        remoteParts &&
-        (remoteParts[0]! - localParts[0]! ||
-          remoteParts[1]! - localParts[1]! ||
-          remoteParts[2]! - localParts[2]!) > 0;
-      const base = remoteNewer ? latest! : pkg.version;
-      const to = bumpVersion(base, explicit.has(row.pkg.name) ? bump : "patch");
+      const to = bumpVersion(pkg.version, explicit.has(row.pkg.name) ? bump : "patch");
       if (versions.includes(to))
         throw new Error(`${row.short}@${to} already exists; reconcile local/npm versions`);
       entries.push({ short: row.short, name: row.pkg.name, from: pkg.version, to });
-    }
-    // Require changed local dependencies to be selected rather than publishing broken ranges.
-    for (const entry of entries) {
-      const row = rows.find((row) => row.short === entry.short)!;
-      for (const name of Object.keys({ ...row.pkg.dependencies, ...row.pkg.peerDependencies })) {
-        const dep = rows.find((row) => row.pkg.name === name);
-        if (!dep || entries.some((e) => e.name === name)) continue;
-        if (capture("git", ["diff", "HEAD", "--", `packages/${dep.short}`]))
-          throw new Error(`Include changed dependency ${dep.short} in the release`);
-      }
     }
     plan = { schema: 1, head, entries, phase: "planned", dist: [], pub: [] };
   }
@@ -253,21 +237,26 @@ await cli("release", async () => {
     });
     return;
   }
-  for (const row of rows) {
-    if (capture("git", ["rev-parse", "--show-toplevel"], row.dir) !== row.dir) continue;
-    if (capture("git", ["ls-files", "--others", "--exclude-standard"], row.dir))
-      throw new Error(`Commit untracked files in ${row.short} before release`);
-    if (plan.phase === "planned" && capture("git", ["status", "--porcelain"], row.dir))
-      throw new Error(`Commit package changes in ${row.short} before release`);
+  for (const entry of plan.entries) checkedNames.add(entry.name);
+  // Include build/typecheck/test dependencies, even when they need no npm release.
+  for (const row of [...rows].reverse()) {
+    if (!checkedNames.has(row.pkg.name)) continue;
+    for (const name of Object.keys({
+      ...row.pkg.dependencies,
+      ...row.pkg.devDependencies,
+      ...row.pkg.peerDependencies,
+    }))
+      if (rows.some((dep) => dep.pkg.name === name)) checkedNames.add(name);
   }
-  if (capture("git", ["ls-files", "--others", "--exclude-standard"]))
-    throw new Error("Commit untracked files before release");
-  if (plan.phase === "planned" && capture("git", ["status", "--porcelain"]))
-    throw new Error("Commit all changes before release");
-  if (plan.phase === "versioned" && plan.fingerprint !== fingerprint(plan.head))
-    throw new Error(
-      "Working tree changed since versioning; restore the release snapshot before --resume",
-    );
+  for (const row of rows.filter((row) => checkedNames.has(row.pkg.name)))
+    await assertReleaseRepository(row.dir);
+  if (plan.phase === "versioned") {
+    if (!plan.snapshots)
+      throw new Error(
+        "Legacy release plan: finish or archive it before starting a snapshot-based release",
+      );
+    await assertSnapshots(plan.snapshots);
+  }
   if (!yes) {
     if (!process.stdin.isTTY) throw new Error("Interactive confirmation required (or --yes)");
     const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -285,7 +274,10 @@ await cli("release", async () => {
     }
   }
   if (plan.phase === "planned") {
+    const sourceBeforeVersioning = await releaseSnapshots(true);
+    const beforeChecks = await releaseSnapshots();
     checks();
+    await assertSnapshots(beforeChecks);
     plan.phase = "applying";
     await save(plan);
     // Record every entry first; an interrupted write can be completed safely on resume.
@@ -296,16 +288,22 @@ await cli("release", async () => {
       await writeFile(path, JSON.stringify(pkg, null, 2) + "\n");
     }
     runCommand("bun", ["install", "--lockfile-only", "--ignore-scripts"], root);
+    if (JSON.stringify(await releaseSnapshots(true)) !== JSON.stringify(sourceBeforeVersioning))
+      throw new Error(
+        "Sources changed while updating versions; inspect the applying release plan before continuing",
+      );
     plan.phase = "versioned";
-    plan.fingerprint = fingerprint(plan.head);
+    plan.snapshots = await releaseSnapshots();
     await save(plan);
   }
-  checks();
+  checks(plan.phase === "versioned" ? ["build", "typecheck"] : undefined);
+  await assertSnapshots(plan.snapshots!);
   for (const entry of plan.entries) {
     if ((await manifest(entry.short)).version !== entry.to)
       throw new Error("Release manifest version mismatch");
     for (const stage of ["dist", "pub"] as const) {
       if (plan[stage].includes(entry.short)) continue;
+      await assertSnapshots(plan.snapshots!);
       logStep(`${entry.name}: ${stage}`);
       if (stage === "pub") {
         const result = spawnSync("bun", ["run", "scripts/pub.ts", entry.short], {
@@ -336,6 +334,6 @@ await cli("release", async () => {
   await save(plan);
   summaryBox("Выпуск завершён", { "Пакетов:": plan.entries.length, "План:": stateFile });
   logDetail(
-    "Версии и bun.lock остаются в рабочем дереве: проверьте и закоммитьте их. Автокоммитов нет.",
+    "Исходные релизные коммиты отправлены в пакетные main. Локальные workspace-манифесты и ветки сохранены; версии и bun.lock обновлены локально.",
   );
 });

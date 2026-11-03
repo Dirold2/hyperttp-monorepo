@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { capture } from "./release.ts";
+import { assertReleaseRepository, sourceSnapshot, copySource } from "./release-source.ts";
 import { packages } from "../workspaces.ts";
 
 export function resolveWorkspaceVersions(
@@ -32,29 +33,11 @@ export function resolveWorkspaceVersions(
 export async function sourceRelease(directory: string, version: string, dryRun = false) {
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version))
     throw new Error(`Invalid version: ${version}`);
-  if (resolve(capture("git", ["rev-parse", "--show-toplevel"], directory)) !== resolve(directory))
-    throw new Error("dist requires an independent package repository");
-  if (capture("git", ["branch", "--show-current"], directory) !== "main")
-    throw new Error("dist requires branch main");
+  await assertReleaseRepository(directory);
   const head = capture("git", ["rev-parse", "HEAD"], directory);
-  const status = capture("git", ["status", "--porcelain"], directory);
-  if (
-    status
-      .split("\n")
-      .filter(Boolean)
-      .some((line) => line.slice(3) !== "package.json")
-  )
-    throw new Error("Commit source changes before dist (only release version may be uncommitted)");
+  const snapshot = await sourceSnapshot(directory);
   const originalManifest = await readFile(join(directory, "package.json"), "utf8");
   const manifest = JSON.parse(originalManifest);
-  const committed = JSON.parse(capture("git", ["show", "HEAD:package.json"], directory));
-  const withoutVersion = (pkg: Record<string, unknown>) => {
-    const copy = { ...pkg };
-    delete copy.version;
-    return JSON.stringify(copy);
-  };
-  if (withoutVersion(manifest) !== withoutVersion(committed))
-    throw new Error("Commit package.json changes other than release version before dist");
   if (manifest.version !== version) throw new Error("Release version mismatch");
   const versions: Record<string, string> = {};
   for (const row of await packages())
@@ -71,8 +54,9 @@ export async function sourceRelease(directory: string, version: string, dryRun =
     capture("git", ["clone", "--no-hardlinks", "--", directory, repo]);
     capture("git", ["checkout", "--detach", head], repo);
     capture("git", ["remote", "set-url", "origin", url], repo);
+    await copySource(directory, repo);
     await writeFile(join(repo, "package.json"), JSON.stringify(resolved, null, 2) + "\n");
-    capture("git", ["add", "package.json"], repo);
+    capture("git", ["add", "-A"], repo);
     const tree = capture("git", ["write-tree"], repo);
     const tagRef = `refs/tags/${tag}`;
     const remoteTag = capture("git", ["ls-remote", "origin", tagRef], repo);
@@ -81,6 +65,8 @@ export async function sourceRelease(directory: string, version: string, dryRun =
       const existingTree = capture("git", ["rev-parse", "FETCH_HEAD^{tree}"], repo);
       if (existingTree !== tree)
         throw new Error(`Remote tag ${tag} has different contents; refusing replacement`);
+      if ((await sourceSnapshot(directory)) !== snapshot)
+        throw new Error("Source changed while preparing release");
       return { head, tag };
     }
     const main = capture("git", ["ls-remote", "origin", "refs/heads/main"], repo);
@@ -93,6 +79,30 @@ export async function sourceRelease(directory: string, version: string, dryRun =
         const match = /^(.*) <([^>]+)>/.exec(identity)!;
         // Refuse unrelated source history, rather than replacing an independent main.
         capture("git", ["merge-base", head, remoteHead], repo);
+        // A previous isolated release may be ahead only by its resolved manifest.
+        // Never merge an arbitrary remote source update by overwriting its tree.
+        const remoteOnly = capture("git", ["rev-list", `${head}..${remoteHead}`], repo);
+        if (remoteOnly) {
+          const changedSource = capture(
+            "git",
+            ["diff", head, remoteHead, "--", ".", ":(exclude)package.json"],
+            repo,
+          );
+          const remoteManifest = JSON.parse(
+            capture("git", ["show", `${remoteHead}:package.json`], repo),
+          );
+          const localManifest = JSON.parse(capture("git", ["show", `${head}:package.json`], repo));
+          const normalize = (pkg: Record<string, any>) => {
+            const value = resolveWorkspaceVersions(pkg, versions);
+            delete value.version;
+            return JSON.stringify(value);
+          };
+          if (changedSource || normalize(remoteManifest) !== normalize(localManifest))
+            throw new Error(
+              "Remote main contains source changes; reconcile it locally before release",
+            );
+        }
+
         const commit = capture(
           "git",
           [
@@ -151,7 +161,7 @@ export async function sourceRelease(directory: string, version: string, dryRun =
     );
     if (
       capture("git", ["rev-parse", "HEAD"], directory) !== head ||
-      (await readFile(join(directory, "package.json"), "utf8")) !== originalManifest
+      (await sourceSnapshot(directory)) !== snapshot
     )
       throw new Error("Source changed while preparing release");
     capture(

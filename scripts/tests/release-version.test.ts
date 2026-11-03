@@ -4,6 +4,7 @@ import { bumpVersion } from "../lib/release-version.ts";
 
 for (const [from, bump, to] of [
   ["0.1.1", "patch", "0.1.2"],
+  ["0.7.1", "patch", "0.7.2"],
   ["0.1.2", "minor", "0.2.0"],
   ["0.9.9", "major", "1.0.0"],
   ["1.9.9", "minor", "1.10.0"],

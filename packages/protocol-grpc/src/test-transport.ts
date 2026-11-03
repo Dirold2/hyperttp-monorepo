@@ -1,6 +1,6 @@
 import type {
   HyperTransport,
-  SenderProtocol,
+  HyperProtocolName,
   TransportRequest,
   TransportResponse,
 } from "@hyperttp/types";
@@ -17,7 +17,7 @@ export interface GrpcTransportOptions {
    * @ru Кастомный список поддерживаемых протоколов.
    * @en Custom list of supported protocols.
    */
-  protocols?: SenderProtocol[];
+  protocols?: HyperProtocolName[];
 }
 
 /**
@@ -26,7 +26,7 @@ export interface GrpcTransportOptions {
  */
 export class GrpcTestTransport implements HyperTransport {
   readonly name = "grpc-test";
-  readonly protocols: readonly SenderProtocol[];
+  readonly protocols: readonly HyperProtocolName[];
   private readonly handler: GrpcHandler;
 
   constructor(handler: GrpcHandler, options: GrpcTransportOptions = {}) {

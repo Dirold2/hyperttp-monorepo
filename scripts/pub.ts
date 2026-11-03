@@ -1,6 +1,6 @@
 import {
   publishedVersion as registryPublishedVersion,
-  waitForPublication,
+  acceptedPublication,
 } from "./lib/npm-registry.ts";
 import { listStage, verifyStage } from "./lib/npm-stage.ts";
 import { readFile, writeFile, mkdir, access, rm } from "node:fs/promises";
@@ -58,6 +58,20 @@ await cli("pub → npm", async () => {
         capture("git", ["rev-parse", "--git-path", "hyperttp-release/npm-attempts"]),
       );
       const attemptFile = join(attemptDir, `${row.short}-${version}.json`);
+      if (!dryRun) {
+        try {
+          const attempt: unknown = JSON.parse(await readFile(attemptFile, "utf8"));
+          if (acceptedPublication(attempt, row.pkg.name, version)) {
+            skipped++;
+            logDetail(
+              `[skip] ${row.pkg.name}@${version}: npm уже принял пакет; видимость в реестре может задержаться`,
+            );
+            continue;
+          }
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
       if (publishedVersion(row.pkg.name, version)) {
         await rm(attemptFile, { force: true });
         skipped++;
@@ -77,8 +91,6 @@ await cli("pub → npm", async () => {
             }) + "\n",
           );
         };
-        const waitVisible = () =>
-          waitForPublication(() => publishedVersion(row.pkg.name, version), 25, 5000);
         const approve = async (): Promise<boolean> => {
           const stage = listStage(row.pkg.name, version, registry);
           if (!stage) return false;
@@ -117,12 +129,6 @@ await cli("pub → npm", async () => {
               if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
             }
             if (attempted) {
-              logStep("Ожидание обработки предыдущей попытки в npm (до 2 минут)…");
-              if (await waitVisible()) {
-                await rm(attemptFile, { force: true });
-                published++;
-                return;
-              }
               throw new PendingPublication(
                 `Версия ${row.pkg.name}@${version} ещё не видна. Повторная загрузка заблокирована; подождите и запустите release --resume. Если состояние длительно не меняется, проверьте npm stage list и аккаунт.`,
               );
@@ -161,14 +167,8 @@ await cli("pub → npm", async () => {
           } else if (result.status !== 0)
             throw new Error(`npm publish --dry-run: ${result.status}`);
         }
-        if (!dryRun) {
-          logStep("npm принял пакет; ожидаем доступность версии (до 2 минут)…");
-          if (!(await waitVisible()))
-            throw new PendingPublication(
-              `npm ещё обрабатывает ${row.pkg.name}@${version}. Это не отказ публикации. Подождите и используйте release --resume; версия не будет загружена повторно.`,
-            );
-        }
-        if (!dryRun) await rm(attemptFile, { force: true });
+        if (!dryRun) logDetail("npm принял пакет; продолжаем без ожидания видимости в реестре.");
+        // Keep the accepted receipt so resume cannot issue another PUT during propagation.
         published++;
       });
     }

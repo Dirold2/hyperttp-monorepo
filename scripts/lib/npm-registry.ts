@@ -47,3 +47,10 @@ export async function waitForPublication(
   }
   return false;
 }
+
+/** A successful publish/approval receipt is sufficient; registry visibility is eventual. */
+export function acceptedPublication(value: unknown, name: string, version: string): boolean {
+  if (!value || typeof value !== "object") return false;
+  const receipt = value as Record<string, unknown>;
+  return receipt.name === name && receipt.version === version && receipt.status === "processing";
+}

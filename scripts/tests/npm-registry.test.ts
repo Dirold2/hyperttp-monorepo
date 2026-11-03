@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { containsVersion, waitForPublication } from "../lib/npm-registry.ts";
+import { containsVersion, waitForPublication, acceptedPublication } from "../lib/npm-registry.ts";
 
 for (const response of [
   "0.5.1",
@@ -21,4 +21,19 @@ test("waits for registry visibility without republishing", async () => {
   assert.equal(await waitForPublication(() => ++calls === 3, 3, 0), true);
   assert.equal(calls, 3);
   assert.equal(await waitForPublication(() => false, 2, 0), false);
+});
+
+test("accepts a successful receipt before registry propagation, but not an unresolved attempt", () => {
+  assert.equal(
+    acceptedPublication({ name: "pkg", version: "1.0.0", status: "processing" }, "pkg", "1.0.0"),
+    true,
+  );
+  for (const receipt of [
+    null,
+    {},
+    { name: "pkg", version: "1.0.0" },
+    { name: "other", version: "1.0.0", status: "processing" },
+    { name: "pkg", version: "2.0.0", status: "processing" },
+  ])
+    assert.equal(acceptedPublication(receipt, "pkg", "1.0.0"), false);
 });
