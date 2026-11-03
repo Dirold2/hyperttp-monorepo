@@ -6,9 +6,11 @@ import { listStage, verifyStage } from "./npm-stage.ts";
 import { readFile, writeFile, mkdir, access, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { cli, logStep, logDetail, summaryBox } from "./format.ts";
+import { cli, logStep, logDetail, logWarn, summaryBox } from "./format.ts";
 import { capture, releaseTargets, withArchive } from "./release.ts";
 import { root } from "./workspaces.ts";
+
+class PendingPublication extends Error {}
 
 await cli("pub → npm", async () => {
   const args = process.argv.slice(2);
@@ -46,99 +48,135 @@ await cli("pub → npm", async () => {
   capture("npm", ["stage", "--help"]);
   const publishedVersion = (name: string, version: string) =>
     registryPublishedVersion(name, version, registry);
-  for (const row of targets) {
-    const version = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"))
-      .version as string;
-    if (!version) throw new Error(`${row.short}: отсутствует version`);
-    const attemptDir = resolve(
-      root,
-      capture("git", ["rev-parse", "--git-path", "hyperttp-release/npm-attempts"]),
-    );
-    const attemptFile = join(attemptDir, `${row.short}-${version}.json`);
-    if (publishedVersion(row.pkg.name, version)) {
-      await rm(attemptFile, { force: true });
-      skipped++;
-      logDetail(`[skip] ${row.pkg.name}@${version}: уже опубликован`);
-      continue;
-    }
-    await withArchive(row, async (archive) => {
-      const approve = async (): Promise<boolean> => {
-        const stage = listStage(row.pkg.name, version, registry);
-        if (!stage) return false;
-        await verifyStage(stage, archive);
-        logDetail(`Staged ${row.pkg.name}@${version}: ${stage.id}; SHA-1 архива совпадает`);
-        if (dryRun) return true;
-        if (!process.stdin.isTTY)
-          throw new Error(`Stage ${stage.id} requires interactive approval; run pub in a terminal`);
-        logStep("Подтвердите staged-публикацию в npm (2FA/браузер)…");
-        const approval = spawnSync("npm", ["stage", "approve", stage.id, "--registry", registry], {
-          cwd: root,
-          stdio: "inherit",
-          timeout: 10 * 60_000,
-        });
-        if (approval.error || approval.status !== 0)
-          throw new Error(
-            approval.error?.message ||
-              "npm stage approve failed; resume without bumping the version",
-          );
-        return true;
-      };
-      if (!(await approve())) {
-        if (!dryRun) {
-          let attempted = false;
-          try {
-            await access(attemptFile);
-            attempted = true;
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-          }
-          if (attempted)
-            throw new Error(
-              `Previous publish attempt is unresolved: ${attemptFile}. No visible version or accessible stage; inspect npm before retrying. Do not delete this marker until registry state is resolved.`,
-            );
+  try {
+    for (const row of targets) {
+      const version = JSON.parse(await readFile(join(row.dir, "package.json"), "utf8"))
+        .version as string;
+      if (!version) throw new Error(`${row.short}: отсутствует version`);
+      const attemptDir = resolve(
+        root,
+        capture("git", ["rev-parse", "--git-path", "hyperttp-release/npm-attempts"]),
+      );
+      const attemptFile = join(attemptDir, `${row.short}-${version}.json`);
+      if (publishedVersion(row.pkg.name, version)) {
+        await rm(attemptFile, { force: true });
+        skipped++;
+        logDetail(`[skip] ${row.pkg.name}@${version}: уже опубликован`);
+        continue;
+      }
+      await withArchive(row, async (archive) => {
+        const markAccepted = async () => {
           await mkdir(attemptDir, { recursive: true });
           await writeFile(
             attemptFile,
-            JSON.stringify({ name: row.pkg.name, version, at: new Date().toISOString() }) + "\n",
-            { flag: "wx" },
+            JSON.stringify({
+              name: row.pkg.name,
+              version,
+              status: "processing",
+              at: new Date().toISOString(),
+            }) + "\n",
           );
-        }
-        logStep(`${row.pkg.name}@${version}: ${dryRun ? "dry-run" : "публикация"}…`);
-        const result = spawnSync(
-          "npm",
-          [
-            "publish",
-            archive,
-            "--access",
-            "public",
-            "--ignore-scripts",
-            "--registry",
-            registry,
-            ...(dryRun ? ["--dry-run"] : []),
-          ],
-          { cwd: root, stdio: "inherit", timeout: 10 * 60_000 },
-        );
-        if (result.error) throw result.error;
-        if (!dryRun) {
-          // An interrupted proof-of-presence flow may already have staged the version.
-          if (
-            !(await waitForPublication(() => publishedVersion(row.pkg.name, version))) &&
-            !(await approve())
-          ) {
+        };
+        const waitVisible = () =>
+          waitForPublication(() => publishedVersion(row.pkg.name, version), 25, 5000);
+        const approve = async (): Promise<boolean> => {
+          const stage = listStage(row.pkg.name, version, registry);
+          if (!stage) return false;
+          await verifyStage(stage, archive);
+          logDetail(`Staged ${row.pkg.name}@${version}: ${stage.id}; SHA-1 архива совпадает`);
+          if (dryRun) return true;
+          if (!process.stdin.isTTY)
             throw new Error(
-              "npm publication is not visible and no accessible stage exists. Do not retry PUT blindly or bump the version: inspect npm account/stages or contact npm support.",
+              `Stage ${stage.id} requires interactive approval; run pub in a terminal`,
+            );
+          logStep("Подтвердите staged-публикацию в npm (2FA/браузер)…");
+          const approval = spawnSync(
+            "npm",
+            ["stage", "approve", stage.id, "--registry", registry],
+            {
+              cwd: root,
+              stdio: "inherit",
+              timeout: 10 * 60_000,
+            },
+          );
+          if (approval.error || approval.status !== 0)
+            throw new Error(
+              approval.error?.message ||
+                "npm stage approve failed; resume without bumping the version",
+            );
+          await markAccepted();
+          return true;
+        };
+        if (!(await approve())) {
+          if (!dryRun) {
+            let attempted = false;
+            try {
+              await access(attemptFile);
+              attempted = true;
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+            }
+            if (attempted) {
+              logStep("Ожидание обработки предыдущей попытки в npm (до 2 минут)…");
+              if (await waitVisible()) {
+                await rm(attemptFile, { force: true });
+                published++;
+                return;
+              }
+              throw new PendingPublication(
+                `Версия ${row.pkg.name}@${version} ещё не видна. Повторная загрузка заблокирована; подождите и запустите release --resume. Если состояние длительно не меняется, проверьте npm stage list и аккаунт.`,
+              );
+            }
+            await mkdir(attemptDir, { recursive: true });
+            await writeFile(
+              attemptFile,
+              JSON.stringify({ name: row.pkg.name, version, at: new Date().toISOString() }) + "\n",
+              { flag: "wx" },
             );
           }
-        } else if (result.status !== 0) throw new Error(`npm publish --dry-run: ${result.status}`);
-      }
-      if (!dryRun && !(await waitForPublication(() => publishedVersion(row.pkg.name, version)))) {
-        throw new Error(
-          "Approval completed but version is not yet visible in npm. Wait, then --resume; stage is not marked as published.",
-        );
-      }
-      if (!dryRun) await rm(attemptFile, { force: true });
-      published++;
-    });
+          logStep(`${row.pkg.name}@${version}: ${dryRun ? "dry-run" : "публикация"}…`);
+          const result = spawnSync(
+            "npm",
+            [
+              "publish",
+              archive,
+              "--access",
+              "public",
+              "--ignore-scripts",
+              "--registry",
+              registry,
+              ...(dryRun ? ["--dry-run"] : []),
+            ],
+            { cwd: root, stdio: "inherit", timeout: 10 * 60_000 },
+          );
+          if (result.error) throw result.error;
+          if (!dryRun) {
+            if (result.status === 0) {
+              await markAccepted();
+            } else if (!publishedVersion(row.pkg.name, version) && !(await approve())) {
+              throw new PendingPublication(
+                `npm publish завершился с кодом ${result.status}; результат сохранён. Проверьте показанную диагностику/авторизацию, затем release --resume. Повторный PUT не выполняется.`,
+              );
+            }
+          } else if (result.status !== 0)
+            throw new Error(`npm publish --dry-run: ${result.status}`);
+        }
+        if (!dryRun) {
+          logStep("npm принял пакет; ожидаем доступность версии (до 2 минут)…");
+          if (!(await waitVisible()))
+            throw new PendingPublication(
+              `npm ещё обрабатывает ${row.pkg.name}@${version}. Это не отказ публикации. Подождите и используйте release --resume; версия не будет загружена повторно.`,
+            );
+        }
+        if (!dryRun) await rm(attemptFile, { force: true });
+        published++;
+      });
+    }
+  } catch (error) {
+    if (!(error instanceof PendingPublication)) throw error;
+    logWarn(error.message);
+    process.exitCode = 2;
+    return false;
   }
   summaryBox("npm", {
     "Режим:": dryRun ? "dry-run" : "publish",

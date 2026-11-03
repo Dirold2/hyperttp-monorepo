@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -272,13 +273,22 @@ await cli("release", async () => {
     for (const stage of ["dist", "pub"] as const) {
       if (plan[stage].includes(entry.short)) continue;
       logStep(`${entry.name}: ${stage}`);
-      runCommand(
-        "bun",
-        ["run", `scripts/${stage}.ts`, entry.short],
-        root,
-        30 * 60_000,
-        stage === "pub",
-      );
+      if (stage === "pub") {
+        const result = spawnSync("bun", ["run", "scripts/pub.ts", entry.short], {
+          cwd: root,
+          stdio: "inherit",
+          timeout: 30 * 60_000,
+        });
+        if (result.status === 2) {
+          logDetail(
+            "Выпуск ожидает обработки npm. План сохранён; позже выполните release --resume.",
+          );
+          process.exitCode = 2;
+          return false;
+        }
+        if (result.error || result.status !== 0)
+          throw new Error(result.error?.message || `pub: exit ${result.status}`);
+      } else runCommand("bun", ["run", "scripts/dist.ts", entry.short], root, 30 * 60_000);
       plan[stage].push(entry.short);
       await save(plan);
     }
