@@ -78,3 +78,11 @@
 	path = packages/types
 	url = git@github.com:IT-IF-OR/hyperttp-types.git
 	branch = main
+[submodule "packages/protocol-rest"]
+	path = packages/protocol-rest
+	url = git@github.com:IT-IF-OR/hyperttp-protocol-rest.git
+	branch = main
+[submodule "packages/protocol-grpc"]
+	path = packages/protocol-grpc
+	url = git@github.com:IT-IF-OR/hyperttp-protocol-grpc.git
+	branch = main
